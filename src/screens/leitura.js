@@ -231,18 +231,21 @@ const Leitura = () => {
         />
 
         <RNPickerSelect
+        style={pickerSelectStyles}
           placeholder={{ label:'Localização', value: null }}
           onValueChange={(v)=>setSelectedLocalizacao(v)}
           items={localizacoes}
           value={selectedLocalizacao}
         />
         <RNPickerSelect
+        style={pickerSelectStyles}
           placeholder={{ label:'Estado de Conservação', value: null }}
           onValueChange={(v)=>setSelectedEstado(v)}
           items={estados}
           value={selectedEstado}
         />
         <RNPickerSelect
+        style={pickerSelectStyles}
           placeholder={{ label:'Situação', value: null }}
           onValueChange={(v)=>setSelectedSituacao(v)}
           items={situacoes}
@@ -252,7 +255,7 @@ const Leitura = () => {
         <View style={styles.buttonContainer}>
           <View style={styles.button}>
             <Button
-              title={'Limpar'}
+              title={'❌ Limpar'}
               onPress={() => {
                 setScanned(false);
                 handleAguardandoLeitura();
@@ -270,7 +273,7 @@ const Leitura = () => {
 
           <View style={styles.button}>
             <Button
-              title="Localizar"
+              title="🔍 Buscar"
               onPress={handleLocalizar}
               color="#4682b4"
               disabled={isBtnLimparDisabled}
@@ -279,7 +282,7 @@ const Leitura = () => {
 
           <View style={styles.button}>
             <Button
-              title="Gravar"
+              title="💾 Gravar"
               onPress={() => { salvar(); setBtnLimparDisabled(false); }}
               color="#4682b4"
               disabled={isBtnGravarDisabled}
@@ -294,16 +297,85 @@ const Leitura = () => {
 };
 
 const styles = StyleSheet.create({
-  container:{ flex:1, justifyContent:'center', padding:20 },
-  scannerContainer:{ flex:1, maxHeight:110, minHeight:10, marginBottom:20 },
-  camera:{ flex:1, padding:10 },
-  redLine:{ position:'absolute', top:'45%', left:0, right:0, height:1, backgroundColor:'red' },
-  text1:{ marginTop:6, textAlign:'center' },
-  formContainer:{ flex:1, marginTop:1 },
-  input:{ height:40, marginBottom:10, padding:10, fontSize:16, backgroundColor:'#fff', textAlign:'left' },
-  inputDescricao:{ height:65, marginBottom:10, padding:10, fontSize:16, backgroundColor:'#fff' },
-  buttonContainer:{ flexDirection:'row', justifyContent:'space-between' , marginTop:40 },
-  button:{ flex:1, marginHorizontal:4 }
+  container:{ 
+    flex:1, 
+    justifyContent:'center', 
+    padding:20 
+  },
+  scannerContainer:{ 
+    flex:1, 
+    maxHeight:110, 
+    minHeight:10, 
+    marginBottom:20 },
+  camera:{ flex:1, padding:10 
+  },
+  redLine:{ 
+    position:'absolute', 
+    top:'45%', 
+    left:0, 
+    right:0, 
+    height:1, 
+    backgroundColor:'red' 
+  },
+  text1:{ 
+    marginTop:6, 
+    textAlign:'center' 
+  },
+  formContainer:{ 
+    flex:1, 
+    marginTop:1 
+  },
+  input:{ 
+    height:40, 
+    marginBottom:10, 
+    padding:10, 
+    fontSize:16, 
+    backgroundColor:'#fff', 
+    textAlign:'left',
+    color:'#808080'
+  },
+  inputDescricao:{ 
+    height:65, 
+    marginBottom:10, 
+    padding:10, 
+    fontSize:16,
+    color:'#808080', 
+    backgroundColor:'#fff' 
+  },
+  buttonContainer:{ 
+    flexDirection:'row', 
+    justifyContent:'space-between' , 
+    marginTop:40 
+  },
+  button:{ 
+    flex:1, 
+    marginHorizontal:4 
+    
+  }
+});
+
+// Estilos específicos para o RNPickerSelect
+const pickerSelectStyles = StyleSheet.create({
+  inputIOS: {
+    fontSize: 16,
+    paddingHorizontal: 10,
+    borderColor: 'gray',
+    borderRadius: 5,
+    color: '#808080',
+    marginBottom: 8,
+    backgroundColor: '#fff',
+    textAlign: 'left'
+  },
+  inputAndroid: {
+    fontSize: 16,
+    paddingHorizontal: 10,
+    borderColor: 'gray',
+    borderRadius: 10,
+    color: '#808080',
+    marginBottom: 8,
+    backgroundColor: '#fff',
+    textAlign: 'left'
+  },
 });
 
 export default Leitura;

@@ -283,44 +283,56 @@ const importarSituacao = async (uri) => {
 
 const importarBens = async (uri) => {
   const content = await readTextWin1252(uri);
-  const linhas = content.split(/\r?\n/);
+  const linhas = content.split(/\r?\n/).filter(l => l.trim() !== '');
   importEvents.emit("progress", { total: linhas.length, current: 0 });
 
-  db.transaction(tx => {
-    linhas.forEach((linha, index) => {
-      if (!linha.trim()) return;
-      try {
-        // Campos fixos por posição
-        const codigo = normalizeCodigo(linha.substring(0, 10));
-        const placa  = normalizePlaca(linha.substring(10, 22)); // << AQUI: placa vazia se campo vier vazio/zeros
+  let inseridos = 0;
 
-        const descricao             = linha.substring(22, 72).trim();
-        const localizacaoNome       = linha.substring(72, 102).trim();
-        const estadoConservacaoNome = linha.substring(102, 122).trim();
-        const situacaoNome          = linha.substring(122, 142).trim();
-        const codigoLocalizacao     = linha.substring(142, 145).trim();
-        const codigoEstado          = linha.substring(145, 147).trim();
-        const codigoSituacao        = linha.substring(147, 149).trim();
+  return new Promise((resolve, reject) => {
+    db.transaction(tx => {
+      linhas.forEach((linha, index) => {
+        try {
+          const codigo = normalizeCodigo(linha.substring(0, 10));
+          const placa  = normalizePlaca(linha.substring(10, 22));
+          const descricao             = linha.substring(22, 72).trim();
+          const localizacaoNome       = linha.substring(72, 102).trim();
+          const estadoConservacaoNome = linha.substring(102, 117).trim();
+          const situacaoNome          = linha.substring(117, 147).trim();
+          const codigoLocalizacao     = linha.substring(147, 150).trim();
+          const codigoEstado          = linha.substring(150, 152).trim();
+          const codigoSituacao        = linha.substring(152, 154).trim();
 
-        tx.executeSql(
-          `INSERT INTO BENS (
-            codigo, placa, descricao, localizacaoNome, estadoConservacaoNome, situacaoNome,
-            codigoLocalizacao, codigoEstado, codigoSituacao
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [codigo, placa, descricao, localizacaoNome, estadoConservacaoNome, situacaoNome, codigoLocalizacao, codigoEstado, codigoSituacao]
-        );
-
-        if ((index + 1) % 100 === 0) {
-          importEvents.emit("progress", { total: linhas.length, current: index + 1 });
+          tx.executeSql(
+            `INSERT INTO BENS (
+              codigo, placa, descricao, localizacaoNome, estadoConservacaoNome, situacaoNome,
+              codigoLocalizacao, codigoEstado, codigoSituacao
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [codigo, placa, descricao, localizacaoNome, estadoConservacaoNome, situacaoNome, codigoLocalizacao, codigoEstado, codigoSituacao],
+            () => {
+              inseridos++;
+              if (inseridos % 100 === 0 || inseridos === linhas.length) {
+                importEvents.emit("progress", { total: linhas.length, current: inseridos });
+              }
+            }
+          );
+        } catch (err) {
+          console.error(`Erro BENS linha ${index + 1}:`, err);
         }
-      } catch (err) {
-        console.error(`Erro BENS linha ${index + 1}:`, err);
-      }
+      });
+    }, (err) => {
+      const msg = `❌ Erro ao importar BENS: ${err?.message || err}`;
+      console.error(msg);
+      importEvents.emit("log", { message: msg });
+      reject(err);
+    }, () => {
+      // transação finalizada
+      const msg = `Bens Importados: ${inseridos}`;
+      //console.log(msg);
+      importEvents.emit("progress", { total: linhas.length, current: linhas.length });
+      importEvents.emit("log", { message: msg });
+      resolve({ inseridos, lidas: linhas.length });
     });
   });
-
-  importEvents.emit("progress", { total: linhas.length, current: linhas.length });
-  console.log(`BENS importados: ${linhas.length}`);
 };
 
 // ---------------------- Consultas ----------------------
