@@ -24,7 +24,7 @@ const Cadastro = ({ navigation }) => {
 
   const handleCadastro = async () => {
     if (!fullName || !email || !password) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos!');
+      Alert.alert('Atenção:', 'Por favor, preencha todos os campos!');
       return;
     }
 
@@ -69,7 +69,7 @@ const Cadastro = ({ navigation }) => {
         secureTextEntry={true}
       />
       <View style={styles.buttonContainer}>
-        <Button title="Cadastrar" onPress={handleCadastro} color="#5f9ea0" />
+        <Button title="Cadastrar" onPress={handleCadastro} color="#4682b4" />
         <Text 
             style={styles.link} 
             onPress={() => navigation.navigate('Login')} // Navegar de volta para Login
@@ -93,6 +93,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginBottom: 20,
     textAlign: 'center',
+    color:"#484d50"
   },
   input: {
     height: 40,
@@ -102,10 +103,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 5,
     backgroundColor: '#fff',
+    color:'#808080'
   },
   link: {
     marginTop: 20,
-    color: '#5f9ea0',
+    color: '#4682b4',
     textAlign: 'center',
   },
   header: {

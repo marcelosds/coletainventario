@@ -22,8 +22,8 @@ setIsEditable(newValue);
 
 function Principal() {
 
-  const [apiLink, setApiLink] = useState('');  
-  const [isConnected, setIsConnected] = useState(false); // Estado para rastrear a conexão
+  //const [apiLink, setApiLink] = useState('');  
+  //const [isConnected, setIsConnected] = useState(false); // Estado para rastrear a conexão
   
   // Carrega os dados da configuração para o AsyncStorage
   useFocusEffect(
@@ -45,53 +45,11 @@ function Principal() {
     loadData(); // Chama a função para carregar os dados
     }, [])); // Executa uma vez na montagem do componente
 
-    // Aqui você pode usar um efeito para verificar a conexão com a API periodicamente ou em um evento
-  useEffect(() => {
-    const checkConnection = async () => {
-      const token = await AsyncStorage.getItem('userToken');
-      try {
-        if (apiLink) {
-          const response = await fetch(`${apiLink}/inventario`, {
-            headers: { Authorization: token },
-          });
-          if (response.ok) {
-            setIsConnected(true);
-          } else {
-            setIsConnected(false);
-          }
-        }
-      } catch (error) {
-        //Alert.alert('Atenção:', 'Você está sem conexão com o servidor!');
-        setIsConnected(false);
-      }
-    };
-
-    checkConnection(); // Chama a função para verificar a conexão
-
-    const interval = setInterval(checkConnection, 30000); // Verifica a cada 30s
-
-    return () => clearInterval(interval); // Limpeza para evitar vazamentos de memória
-  }, [apiLink]); // Adiciona apiLink como dependência
-
-
-  useEffect(() => {
-    //console.log("isConnected:", isConnected); // Log do estado isConnected
-  }, [isConnected]); // Log quando isConnected mudar
-
-
-    return <Tab.Navigator screenOptions={{ tabBarShowLabel: true }}>
+  
+  return <Tab.Navigator screenOptions={{ tabBarShowLabel: true }}>
 
         <Tab.Screen name="Leitura das Placas" component={Leitura} options={{
             headerShown: true, headerTitleAlign: 'center',
-            headerRight: () => (
-              <View style={{ marginRight: 20 }}>
-                <Feather 
-                  name={isConnected ? "wifi" : "wifi-off"} 
-                  size={20} 
-                  color={isConnected ? "green" : "red"} 
-                />
-              </View>
-            ),
             tabBarIcon: ({ color, size }) => (
                 <Ionicons name="search-outline" size={size} color={color} />
             ),
@@ -99,15 +57,6 @@ function Principal() {
 
         <Tab.Screen name="Lista de Bens" component={Listabens} options={{
             headerShadow: true, headerTitleAlign: "center",
-            headerRight: () => (
-              <View style={{ marginRight: 20 }}>
-                <Feather 
-                  name={isConnected ? "wifi" : "wifi-off"} 
-                  size={20} 
-                  color={isConnected ? "green" : "red"} 
-                />
-              </View>
-            ),
             tabBarIcon: ({ color, size }) => (
                 <Ionicons name="list-outline" size={size} color={color} />
             ),
@@ -115,15 +64,6 @@ function Principal() {
 
         <Tab.Screen name="Configurações" component={Configuracao} options={{
             headerShadow: true, headerTitleAlign: "center",
-            headerRight: () => (
-              <View style={{ marginRight: 20 }}>
-                <Feather 
-                  name={isConnected ? "wifi" : "wifi-off"} 
-                  size={20} 
-                  color={isConnected ? "green" : "red"} 
-                />
-              </View>
-            ),
             tabBarIcon: ({ color, size }) => (
                 <Ionicons name="settings-outline" size={size} color={color} />
             ),
@@ -131,15 +71,6 @@ function Principal() {
 
         <Tab.Screen name="Sair" component={Sair} options={{
             headerTitleAlign: "center",
-            headerRight: () => (
-              <View style={{ marginRight: 20 }}>
-                <Feather 
-                  name={isConnected ? "wifi" : "wifi-off"} 
-                  size={20} 
-                  color={isConnected ? "green" : "red"} 
-                />
-              </View>
-            ),
             tabBarIcon: ({ color, size }) => (
                 <Ionicons name="exit-outline" size={size} color={color} />
             ),
@@ -165,10 +96,7 @@ const Sair = ({ navigation }) => {
     };
 
     const handleLogout = async () => {
-      // Aqui você pode adicionar lógica para efetuar o logout,
-      //const auth = getAuth();
       try {
-        //await signOut(auth);
         Alert.alert('Logout', 'Você foi desconectado com sucesso!');
         navigation.navigate('Login'); // Navegue para a tela de login
         // Redirecionar ou atualizar o estado se necessário
@@ -202,7 +130,7 @@ const Sair = ({ navigation }) => {
       <View style={styles.container}>
         <Text>Você será desconectado!</Text>
         <Text></Text>
-        <Button title="Tem certeza que deseja sair?" onPress={handleLogout} color="#5f9ea0" />
+        <Button title="Tem certeza que deseja sair?" onPress={handleLogout} color="#4682b4" />
       </View>
       <View style={{ padding: 20 }}>
       
@@ -227,7 +155,7 @@ const Sair = ({ navigation }) => {
         />
         <Button 
           title="Excluir Minha Conta"
-          onPress={excluirConta} color="#5f9ea0" // Chama a função de exclusão quando pressionado
+          onPress={excluirConta} color="#4682b4" // Chama a função de exclusão quando pressionado
           disabled={!isChecked} // Desativa o botão se a Checkbox não estiver marcada
         />
       </View>
@@ -264,6 +192,7 @@ const styles = StyleSheet.create({
       marginBottom: 10,
       paddingHorizontal: 10,
       borderRadius: 5,
+      color:'#808080'
     },
   });
 

@@ -8,7 +8,7 @@ import Configuracao from './src/screens/configuracao';
 import Principal from './src/screens/principal';
 import RecuperacaoSenha from './src/screens/RecuperacaoSenha';
 import Listabens from './src/screens/listabens';
-
+import ImportacaoScreen from './src/screens/ImportacaoScreen'; 
 
 const Stack = createNativeStackNavigator();
 
@@ -50,7 +50,13 @@ const App = () => {
         <Stack.Screen 
           name="Lista" 
           component={Listabens}
+          options={{ headerShown: false }} />
+
+        <Stack.Screen 
+          name="ImportarArquivos" 
+          component={ImportacaoScreen}
           options={{ headerShown: false }} />    
+
       </Stack.Navigator>
     </NavigationContainer>
   );

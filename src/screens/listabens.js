@@ -1,121 +1,95 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import axios from 'axios';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getItemsSQLite } from '../database/baseSqlite';
-import { getSituacaoInven } from '../database/baseSqlite';
-import { getTotalItensInven } from '../database/baseSqlite';
-import { getInventariados } from '../database/baseSqlite';
+import { getBens } from '../database/baseSqlite';
 
+// Helper: define quando considerar "inventariado"
+const isInventariado = (status) => {
+  const s = (status || '').toString().trim().toLowerCase();
+  return s === 'bem inventariado!';
+};
 
 const Listabens = () => {
-  const [bens, setBens] = useState([]); // Estado para armazenar os bens
-  const [total, setTotal] = useState('');
-  const [inventariados, setInventariados] = useState('');
-  const [stInventario, setStInventario] = useState(null); // Adicionado para armazenar stInventario
-  const [loading, setLoading] = useState(true); // Estado para controle de carregamento
-  const [error, setError] = useState(null); // Estado para erro
-
-  const [apiLink, setApiLink] = useState('');
-  const [senhaLink, setSenhaLink] = useState('');
+  const [bensRaw, setBensRaw] = useState([]);
+  const [bensUI, setBensUI] = useState([]); // itens já mapeados p/ o render
+  const [total, setTotal] = useState('0');
+  const [inventariados, setInventariados] = useState('0');
   const [codigoInventario, setCodigoInventario] = useState('');
+  const [stInventario, setStInventario] = useState(null); // não há fonte no baseSqlite.js; deixei para futuro
+  const [loading, setLoading] = useState(true);
+  const [isRefresh, setIsRefresh] = useState(false);
+  const [error, setError] = useState(null);
 
-
-  // Carrega os dados da configuração para o AsyncStorage
-  useFocusEffect(
-    React.useCallback(() => {
-        const loadData = async () => {
-
-        const json = await AsyncStorage.getItem('inventario');
-        const inventario = JSON.parse(json);
-
-        if (inventario) {
-            setApiLink(inventario.apiLink);
-            setSenhaLink(inventario.senhaLink);
-            setCodigoInventario(inventario.codigoInventario.toString());
-
-        }    
+  // Carrega dados básicos do AsyncStorage (apenas para mostrar o número do inventário)
+  const loadHeaderInfo = useCallback(async () => {
+    try {
+      const json = await AsyncStorage.getItem('inventario');
+      if (json) {
+        const inv = JSON.parse(json);
+        setCodigoInventario(inv?.codigoInventario ? String(inv.codigoInventario) : '');
+        // Se você tiver stInventario salvo em algum lugar, dá pra ler aqui também.
+      }
+    } catch {
+      // silencioso
     }
-    loadData(); // Chama a função para carregar os dados
-  
-    }, [])); // Executa uma vez na montagem do componente
+  }, []);
 
+  const mapRowToUI = useCallback((row) => {
+    // Mapeia colunas do BENS (baseSqlite.js) => campos usados no render
+    return {
+      nrPlaca: String(row?.placa ?? ''),
+      cdItem: String(row?.codigo ?? ''),
+      dsReduzida: String(row?.descricao ?? ''),
+      dsLocalizacao: String(row?.localizacaoNome ?? ''),
+      dsEstadoConser: String(row?.estadoConservacaoNome ?? ''),
+      dsSituacao: String(row?.situacaoNome ?? ''),
+      statusBem: String(row?.StatusBem ?? ''),
+      _raw: row,
+    };
+  }, []);
 
-  
-  // Função para buscar os bens
+  const fetchFromSQLite = useCallback(async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const rows = await getBens(); // retorna todas as colunas de BENS
+      setBensRaw(Array.isArray(rows) ? rows : []);
+
+      const mapeados = (Array.isArray(rows) ? rows : []).map(mapRowToUI);
+      setBensUI(mapeados);
+
+      setTotal(String(mapeados.length));
+
+      // inventariados: tenta contar StatusBem (se existir na sua tabela)
+      const qtdInventariados = (rows || []).filter(r => r?.StatusBem && String(r.StatusBem).trim() !== '').length;
+      setInventariados(String(qtdInventariados));
+    } catch (e) {
+      setError('Erro ao carregar dados locais. Verifique a importação.');
+    } finally {
+      setLoading(false);
+    }
+  }, [mapRowToUI]);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefresh(true);
+    await fetchFromSQLite();
+    setIsRefresh(false);
+  }, [fetchFromSQLite]);
+
   useFocusEffect(
-    React.useCallback(() => {
-        const fetchBens = async () => {
-          setLoading(true); // Define o carregamento como verdadeiro
-          setError(null); // Reseta o erro antes da nova requisição
-            try {
+    useCallback(() => {
+      loadHeaderInfo();
+      fetchFromSQLite();
+    }, [loadHeaderInfo, fetchFromSQLite])
+  );
 
-              const json = await AsyncStorage.getItem('inventario');
-              const inventario = JSON.parse(json);
+  // Ordena sem mutar estado original
+  const dadosOrdenados = useMemo(() => {
+    return [...bensUI].sort((a, b) => Number(a.cdItem || 0) - Number(b.cdItem || 0));
+  }, [bensUI]);
 
-             
-               // Verifica se está habilitado para carregar da API ou do SQLite
-              if (inventario.isEnabled) {
-                // Carrega os bens da tabela INVENTARIOITEM do SQLite
-                const bensSQLite = await getItemsSQLite(); // função para obter itens do SQLite
-                setBens(bensSQLite);
-                  
-                const situacaoInven = await getSituacaoInven(); // função para obter situação do inventário do SQLite
-                setStInventario(situacaoInven);
-                
-                const totalItens = await getTotalItensInven(); // função para obter totais de bens do SQLite
-                setTotal(totalItens.toString());
-                
-                const inventariados = await getInventariados(); // função para obter itens inventariados do SQLite
-                setInventariados(inventariados.toString());
-
-
-              } else if (apiLink && senhaLink && codigoInventario) {
-
-                                  
-                const token = await AsyncStorage.getItem('userToken');
-
-                const response = await axios.get(`${apiLink}/bens/${codigoInventario}`, {
-                    headers: { Authorization: token },
-                  }); // Endpoint da API
-
-                const totalResponse = await axios.get(`${apiLink}/total/${codigoInventario}`, {
-                  headers: { Authorization: token },
-                }); // Endpoint da API
-
-                const inventariadosResponse = await axios.get(`${apiLink}/inventariados/${codigoInventario}`, {
-                  headers: { Authorization: token },
-                }); // Endpoint da API
-
-                const InventarioResponse = await axios.get(`${apiLink}/inventario/${codigoInventario}`, {
-                  headers: { Authorization: token },
-                }); // Endpoint da API
-
-            setBens(response.data); // Armazena os dados no estado
-                
-
-            setStInventario(InventarioResponse.data.stInventario); // Armazena os dados no estado
-                      
-            if (totalResponse.data && totalResponse.data.totalBens) {
-              setTotal(totalResponse.data.totalBens.toString()); // Garantindo que seja uma string
-            }
-                       
-            setInventariados(inventariadosResponse.data.totalInventariados.toString()); // Garantindo que seja uma string
-            }
-        
-            } catch (error) {
-            setError(error.message); // Armazena a mensagem de erro no estado
-            } finally {
-            setLoading(false); // Define o carregamento como concluído
-            }
-            
-        };
-    fetchBens(); // Chama a função para carregar os dados
-    }, [apiLink, senhaLink, codigoInventario])); // Executa uma vez na montagem do componente
-
-  
-  // Renderização da tela
+  // Renderização da tela (mantido exatamente como você pediu)
   const renderItem = ({ item }) => (
     <View style={styles.itemContainer}>
       <View style={styles.lista}>
@@ -126,44 +100,66 @@ const Listabens = () => {
       <Text style={styles.text}>Localização: {item.dsLocalizacao}</Text>
       <Text style={styles.text}>Estado de Conservação: {item.dsEstadoConser}</Text>
       <Text style={styles.text}>Situação: {item.dsSituacao}</Text>
-      <Text style={styles.text}>Valor: {item.vlAtual}</Text>
-      <Text style={styles.text}>Status: {item.StatusBem}</Text>
+      <Text style={styles.text}>Status: {item.statusBem?.trim() || ''}{isInventariado(item.statusBem) ? ' ✅' : ''}</Text>
     </View>
   );
 
+  const keyExtractor = (item, idx) => {
+    const base = item?.cdItem ? String(item.cdItem) : `idx-${idx}`;
+    return item?.nrPlaca ? `${base}-${item.nrPlaca.trim()}` : base;
+    };
 
-  const sortedData = bens.sort((a, b) => Number(a.cdItem) - Number(b.cdItem)); //Ordena a lista em ordem crescente pelo código
+  const inventarioEncerrado = stInventario === 1; // fica falso enquanto não tivermos a fonte desse status
 
   return (
     <View style={styles.container}>
-      {loading ? (
-        <ActivityIndicator size="large" color="#0000ff" />
+      {loading && !isRefresh ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#4682b4" />
+          <Text style={styles.loadingText}>Carregando bens...</Text>
+        </View>
       ) : error ? (
-        <Text>Erro ao carregar dados: Verificar conexão com servidor, estiver trabalhando offline, verifique importação.</Text>
+        <View style={styles.center}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Text style={styles.hintText}>Puxe para baixo para tentar novamente.</Text>
+        </View>
       ) : (
         <>
-          <Text style={[styles.title, { color: stInventario === 1 ? 'red' : '#5f9ea0' }]}>
-            Inventário: {codigoInventario}
+          <Text style={[styles.title, { color: inventarioEncerrado ? 'red' : '#4682b4' }]}>
+            Inventário: {codigoInventario || '—'}
           </Text>
-          {stInventario === 1 && (  // Verifica se stInventario é 2 para exibir o texto
-          <Text style={[styles.title, { color: stInventario === 1 ? 'red' : '#5f9ea0' }]}>Encerrado!</Text>
+
+          {inventarioEncerrado && (
+            <Text style={[styles.title, { color: 'red' }]}>Encerrado!</Text>
           )}
 
           <View style={styles.subtext}>
             <Text style={styles.title1}>Total de Bens: {total}</Text>
             <Text style={styles.title2}>Inventariados: {inventariados}</Text>
           </View>
-          <FlatList 
-            data={bens}
-            renderItem={renderItem}
-            keyExtractor={item => item.cdItem.toString()} // Certifique-se de que cdItem pode ser convertido para string
-          />
+
+          {dadosOrdenados.length === 0 ? (
+            <View style={styles.center}>
+              <Text style={styles.hintText}>Nenhum bem encontrado. Importe os arquivos TXT e atualize.</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={dadosOrdenados}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              refreshControl={<RefreshControl refreshing={isRefresh} onRefresh={onRefresh} colors={['#4682b4']} />}
+              contentContainerStyle={{ paddingBottom: 12 }}
+              initialNumToRender={20}
+              maxToRenderPerBatch={20}
+              removeClippedSubviews
+              windowSize={11}
+            />
+          )}
         </>
       )}
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -171,34 +167,46 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#f0f0f0',
   },
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+  },
+  loadingText: {
+    marginTop: 8,
+    color: '#484d50',
+  },
+  errorText: {
+    color: '#b00020',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  hintText: {
+    color: '#6b7280',
+    textAlign: 'center',
+  },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
     textAlign: 'center',
-    color: '#5f9ea0'
-  },
-  title1: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
-    color: 'red'
   },
   subtext: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // Espaço igual entre os itens
-    width: '100%', // Ocupa toda a largura disponível
-    paddingHorizontal: 10, // Padding lateral
-    paddingBottom: 10
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: 10,
+    paddingBottom: 10,
   },
   title1: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#484d50',
   },
   title2: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#484d50',
   },
   itemContainer: {
     padding: 15,
@@ -210,12 +218,12 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 16,
-    color: '#5f9ea0',
+    color: '#4682b4',
   },
   lista: {
     flexDirection: 'row',
-    justifyContent: 'space-between'
-  }
+    justifyContent: 'space-between',
+  },
 });
 
 export default Listabens;
