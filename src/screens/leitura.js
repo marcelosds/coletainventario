@@ -1,6 +1,6 @@
 // leitura.js
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, Button, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, TextInput,TouchableOpacity, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { Camera, CameraView } from 'expo-camera';
 import RNPickerSelect from 'react-native-picker-select';
 import { useFocusEffect } from '@react-navigation/native';
@@ -68,7 +68,7 @@ const Leitura = () => {
         setBensData(bens || []);
       } catch (error) {
         console.error('Erro carregar dados locais', error);
-        Alert.alert('Erro', 'Não foi possível carregar dados locais.');
+        Alert.alert('❌ Erro', 'Não foi possível carregar dados locais.');
       }
     };
     // Ao entrar na tela: reseta e ativa o scanner
@@ -108,7 +108,7 @@ const Leitura = () => {
       setBtnGravarDisabled(false);
       setIsEditable(false);
     } catch (error) {
-      Alert.alert('Atenção:', 'Bem não localizado nesse inventário!');
+      Alert.alert('⚠️ Atenção:', 'Bem não localizado nesse inventário!');
     } finally {
       setLoading(false);
     }
@@ -116,7 +116,7 @@ const Leitura = () => {
 
   const handleLocalizar = () => {
     const placaInput = fields.placa.trim();
-    if (!placaInput) return Alert.alert('Atenção', 'Insira Placa ou Código!');
+    if (!placaInput) return Alert.alert('⚠️ Atenção', 'Insira Placa ou Código!');
     const bemEncontrado = bensData.find(bem => (bem.placa || '').trim() === placaInput || bem.codigo?.toString() === placaInput);
     if (bemEncontrado) {
       fetchBemData(bemEncontrado.codigo || bemEncontrado.placa);
@@ -125,7 +125,7 @@ const Leitura = () => {
       setBtnGravarDisabled(false);
       setIsEditable(false);
     } else {
-      Alert.alert('Atenção:', 'Bem não localizado nesse inventário!');
+      Alert.alert('⚠️ Atenção:', 'Bem não localizado nesse inventário!');
     }
   };
 
@@ -158,7 +158,7 @@ const Leitura = () => {
         }
       );
 
-      Alert.alert('Sucesso', 'Dados do bem salvos com sucesso.');
+      Alert.alert('✅ Sucesso', 'Dados do bem salvos com sucesso.');
 
       // Limpa e reativa o scanner para nova leitura
       setFields({ placa:'', codigo:'', descricao:'' });
@@ -171,7 +171,7 @@ const Leitura = () => {
       setScanned(false);        // libera para próxima leitura
     } catch (error) {
       console.error(error);
-      Alert.alert('Erro', 'Não foi possível salvar os dados do bem.');
+      Alert.alert('❌ Erro', 'Não foi possível salvar os dados do bem.');
       // Mesmo em erro, permita tentar outra leitura
       setScanned(false);
     }
@@ -252,47 +252,56 @@ const Leitura = () => {
           value={selectedSituacao}
         />
 
-        <View style={styles.buttonContainer}>
-          <View style={styles.button}>
-            <Button
-              title={'❌ Limpar'}
-              onPress={() => {
-                setScanned(false);
-                handleAguardandoLeitura();
-                setBtnLimparDisabled(false);
-                setBtnGravarDisabled(true);
-                setSelectedLocalizacao(null);
-                setSelectedEstado(null);
-                setSelectedSituacao(null);
-                setFields({ placa:'', codigo:'', descricao:'' });
-                setIsEditable(true);
-              }}
-              color="#4682b4"
-            />
-          </View>
-
-          <View style={styles.button}>
-            <Button
-              title="🔍 Buscar"
-              onPress={handleLocalizar}
-              color="#4682b4"
-              disabled={isBtnLimparDisabled}
-            />
-          </View>
-
-          <View style={styles.button}>
-            <Button
-              title="💾 Gravar"
-              onPress={() => { salvar(); setBtnLimparDisabled(false); }}
-              color="#4682b4"
-              disabled={isBtnGravarDisabled}
-            />
-          </View>
-        </View>
+        
 
         {loading && <Text>Carregando...</Text>}
       </ScrollView>
+      {/* FOOTER FIXO */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.footerBtn]}
+            activeOpacity={0.8}
+            onPress={() => {
+              setScanned(false);
+              handleAguardandoLeitura();
+              setBtnLimparDisabled(false);
+              setBtnGravarDisabled(true);
+              setSelectedLocalizacao(null);
+              setSelectedEstado(null);
+              setSelectedSituacao(null);
+              setFields({ placa: '', codigo: '', descricao: '' });
+              setIsEditable(true);
+            }}
+          >
+            <Text style={styles.footerBtnText}>❌ Limpar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.footerBtn,
+              isBtnLimparDisabled && styles.footerBtnDisabled,
+            ]}
+            activeOpacity={0.8}
+            onPress={handleLocalizar}
+            disabled={isBtnLimparDisabled}
+          >
+            <Text style={styles.footerBtnText}>🔍 Localizar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.footerBtn,
+              isBtnGravarDisabled && styles.footerBtnDisabled,
+            ]}
+            activeOpacity={0.8}
+            onPress={() => { salvar(); setBtnLimparDisabled(false); }}
+            disabled={isBtnGravarDisabled}
+          >
+            <Text style={styles.footerBtnText}>💾 Gravar</Text>
+          </TouchableOpacity>
+        </View>
     </View>
+    
   );
 };
 
@@ -347,11 +356,45 @@ const styles = StyleSheet.create({
     justifyContent:'space-between' , 
     marginTop:40 
   },
-  button:{ 
-    flex:1, 
-    marginHorizontal:4 
-    
-  }
+ 
+  footer: {
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  bottom: 0,
+  flexDirection: 'row',
+  alignItems: 'center',
+  paddingHorizontal: 10,
+  paddingVertical: 40,
+  backgroundColor: '#f2efefff',
+  borderTopWidth: 1,
+  borderTopColor: '#e5e7eb',
+  // sombra
+  shadowColor: '#000',
+  shadowOpacity: 0.08,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: -2 },
+  elevation: 8,
+},
+footerBtn: {
+  flex: 1,
+  marginHorizontal: 6,
+  backgroundColor: '#029DAF',
+  paddingVertical: 14,
+  borderRadius: 5,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+footerBtnDisabled: {
+  opacity: 0.5,           
+},
+footerBtnText: {
+  color: '#fff',
+
+  fontWeight: 'bold',
+  fontWeight: '600',
+},
+
 });
 
 // Estilos específicos para o RNPickerSelect

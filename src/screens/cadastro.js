@@ -69,7 +69,7 @@ const Cadastro = ({ navigation }) => {
         secureTextEntry={true}
       />
       <View style={styles.buttonContainer}>
-        <Button title="Cadastrar" onPress={handleCadastro} color="#4682b4" />
+        <Button title="Cadastrar" onPress={handleCadastro} color="#029DAF" />
         <Text 
             style={styles.link} 
             onPress={() => navigation.navigate('Login')} // Navegar de volta para Login
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginBottom: 20,
     textAlign: 'center',
-    color:"#484d50"
+    color:"#029DAF"
   },
   input: {
     height: 40,
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   },
   link: {
     marginTop: 20,
-    color: '#4682b4',
+    color: '#029DAF',
     textAlign: 'center',
   },
   header: {

@@ -64,7 +64,7 @@ const RecuperarSenha = ({ navigation }) => {
         secureTextEntry
       />
       <View style={styles.buttonContainer}>
-        <Button title="GRAVAR NOVA SENHA" onPress={handleRecuperarSenha} color="#4682b4" />
+        <Button title="GRAVAR NOVA SENHA" onPress={handleRecuperarSenha} color="#029DAF" />
         <Text 
           style={styles.link} 
           onPress={() => navigation.navigate('Login')} // Navegar para Cadastro
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginBottom: 20,
     textAlign: 'center',
-    color:"#484d50"
+    color:"#029DAF"
   },
   logo: {
     width: 240,
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   },
   link: {
     marginTop: 20,
-    color: '#4682b4',
+    color: '#029DAF',
     textAlign: 'center',
   },
 });
