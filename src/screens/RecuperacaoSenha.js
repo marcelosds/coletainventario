@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TextInput, Button, Alert, StyleSheet, Image, Text } from 'react-native';
+import { View, TextInput, TouchableOpacity, Alert, StyleSheet, Image, Text } from 'react-native';
 import { recuperarSenha } from '../database/baseSqlite'; // Importe a função criada
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -26,16 +26,16 @@ const RecuperarSenha = ({ navigation }) => {
 
     // Verifica se os campos estão vazios
     if (!email || !novaSenha) {
-      Alert.alert('Atenção:', 'Por favor, preencha todos os campos.');
+      Alert.alert('⚠️ Atenção!', 'Por favor, preencha todos os campos.');
       return; // Interrompe a execução se algum campo estiver vazio
     }
 
     try {
       const mensagem = await recuperarSenha(email, novaSenha);
-      Alert.alert('Atenção:', mensagem);
+      Alert.alert('⚠️ Atenção:', mensagem);
       navigation.navigate('Login'); // Navegue para a tela de login
     } catch (error) {
-      Alert.alert('Erro', error);
+      Alert.alert('❌ Erro', error);
     }
     setEmail('');
     setNovaSenha('');
@@ -64,7 +64,12 @@ const RecuperarSenha = ({ navigation }) => {
         secureTextEntry
       />
       <View style={styles.buttonContainer}>
-        <Button title="GRAVAR NOVA SENHA" onPress={handleRecuperarSenha} color="#029DAF" />
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#029DAF' }]}
+          onPress={handleRecuperarSenha}
+          >
+          <Text style={styles.buttonText}>📝 Gravar Nova Senha</Text>
+        </TouchableOpacity>
         <Text 
           style={styles.link} 
           onPress={() => navigation.navigate('Login')} // Navegar para Cadastro
@@ -93,7 +98,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginBottom: 20,
     textAlign: 'center',
-    color:"#029DAF"
+    color:"#029DAF",
+    fontWeight: '700'
   },
   logo: {
     width: 240,
@@ -120,6 +126,8 @@ const styles = StyleSheet.create({
     color: '#029DAF',
     textAlign: 'center',
   },
+  button: { padding: 15, borderRadius: 8, marginTop: 10, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
 });
 
 export default RecuperarSenha;

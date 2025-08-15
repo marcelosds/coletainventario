@@ -41,7 +41,7 @@ const Listabens = () => {
         setBensUI([]);
         setTotal('0');
         setInventariados('0');
-        setError('Defina o inventário nas Configurações (✅ Usar nas telas).');
+        setError('Defina o inventário nas Configurações.');
         return;
       }
 
@@ -140,7 +140,7 @@ const Listabens = () => {
         </View>
       ) : (
         <>
-          <Text style={[styles.title, { color: inventarioEncerrado ? 'red' : '#4682b4' }]}>
+          <Text style={[styles.title, { color: inventarioEncerrado ? 'red' : '#111827' }]}>
             Inventário: {codigoInventario || '—'}
           </Text>
 
@@ -193,6 +193,6 @@ const styles = StyleSheet.create({
   itemContainer: { padding: 15, marginVertical: 5, borderColor: '#ccc', borderWidth: 1, borderRadius: 5, backgroundColor: '#fff' },
   text: { fontSize: 16, color: '#4682b4' },
   lista: { flexDirection: 'row', justifyContent: 'space-between' },
-});
+  });
 
 export default Listabens;

@@ -27,7 +27,7 @@ const Login = ({ navigation }) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (status !== 'granted') {
-      Alert.alert('Acesso à galeria', 'Permissão para acessar a galeria é necessária!');
+      Alert.alert('❗ Acesso à galeria', 'Permissão para acessar a galeria é necessária!');
     }
   };
 
@@ -56,7 +56,7 @@ const Login = ({ navigation }) => {
   const handleAuth = async () => {
       // Verifica se os campos estão vazios
       if (!email || !password) {
-        Alert.alert('Atenção:', 'Por favor, preencha todos os campos.');
+        Alert.alert('⚠️ Atenção!', 'Por favor, preencha todos os campos.');
         return; // Impede a execução da autenticação se algum campo estiver vazio
       }
 
@@ -66,7 +66,7 @@ const Login = ({ navigation }) => {
       if (user) {
         navigation.navigate('Principal'); // Navegar para a tela de Principal
       } else {
-        Alert.alert('Erro', 'E-mail ou senha incorretos.');
+        Alert.alert('❌ Erro!', 'E-mail ou senha incorretos.');
       }
       setEmail('');
       setPassword('');
@@ -77,7 +77,7 @@ const Login = ({ navigation }) => {
     <View style={styles.container}>
       <View style={styles.header}>
       {!logoUri ? (
-        <Button title="Clique aqui para carregar imagem logomarca" onPress={pickImage} color="#029DAF" />
+        <Button title="Clique aqui para carregar logomarca" onPress={pickImage} color="#029DAF" />
       ) : (
         <Image/>
       )}
@@ -117,11 +117,17 @@ const Login = ({ navigation }) => {
       </View>
 
       <View style={styles.buttonContainer}>
-        <Button title="Login" onPress={handleAuth} color="#029DAF" />
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#029DAF' }]}
+          onPress={handleAuth}
+          >
+          <Text style={styles.buttonText}>🔑 Login</Text>
+        </TouchableOpacity>
         <Text 
           style={styles.link} 
           onPress={() => navigation.navigate('Cadastro')} // Navegar para Cadastro
         >
+        
           Criar Cadastro
         </Text>
       </View>
@@ -141,7 +147,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginBottom: 20,
     textAlign: 'center',
-    color:"#029DAF"
+    color:"#029DAF",
+    fontWeight: '700'
   },
   input: {
     height: 40,
@@ -181,6 +188,8 @@ const styles = StyleSheet.create({
   recuperaContainer: {
     alignItems: "flex-end"
   },
+  button: { padding: 15, borderRadius: 8, marginTop: 10, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
  
 });
 

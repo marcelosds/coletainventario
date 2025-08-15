@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TextInput, Button, Alert, Text, Image } from 'react-native';
+import { StyleSheet, View, TextInput, TouchableOpacity, Alert, Text, Image } from 'react-native';
 import { addUser } from '../database/baseSqlite';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -24,16 +24,16 @@ const Cadastro = ({ navigation }) => {
 
   const handleCadastro = async () => {
     if (!fullName || !email || !password) {
-      Alert.alert('Atenção:', 'Por favor, preencha todos os campos!');
+      Alert.alert('⚠️ Atenção!', 'Por favor, preencha todos os campos.');
       return;
     }
 
     try {
       await addUser(fullName, email, password);
-      Alert.alert('Sucesso', 'Usuário registrado com sucesso!');
+      Alert.alert('✅ Sucesso!', 'Usuário registrado com sucesso.');
       navigation.navigate('Login'); // Redireciona para a tela de login após o cadastro
     } catch (error) {
-      Alert.alert('Erro', 'Erro ao registrar usuário. O e-mail pode já estar em uso.');
+      Alert.alert('❌ Erro!', 'Erro ao registrar usuário. O e-mail pode já estar em uso.');
     }
   
     setFullName('');
@@ -69,7 +69,12 @@ const Cadastro = ({ navigation }) => {
         secureTextEntry={true}
       />
       <View style={styles.buttonContainer}>
-        <Button title="Cadastrar" onPress={handleCadastro} color="#029DAF" />
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#029DAF' }]}
+          onPress={handleCadastro}
+          >
+          <Text style={styles.buttonText}>👤 Cadastrar</Text>
+        </TouchableOpacity>
         <Text 
             style={styles.link} 
             onPress={() => navigation.navigate('Login')} // Navegar de volta para Login
@@ -93,7 +98,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     marginBottom: 20,
     textAlign: 'center',
-    color:"#029DAF"
+    color:"#029DAF",
+    fontWeight: '700'
   },
   input: {
     height: 40,
@@ -125,6 +131,8 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginTop: 50
   },
+  button: { padding: 15, borderRadius: 8, marginTop: 10, alignItems: 'center' },
+  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
 });
 
 export default Cadastro;

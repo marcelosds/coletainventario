@@ -38,6 +38,9 @@ const Configuracao = ({ navigation }) => {
 
   const [refreshing, setRefreshing] = useState(false);
 
+  // ✅ NOVO: checkbox que habilita ações sensíveis (backup, restaura, limpar)
+  const [habilitarAcoes, setHabilitarAcoes] = useState(false);
+
   useEffect(() => {
     (async () => {
       const storedEmail = await AsyncStorage.getItem('userEmail');
@@ -53,7 +56,7 @@ const Configuracao = ({ navigation }) => {
       setInventarioSelecionado(prev => (prev && arr.includes(prev)) ? prev : (arr[0] || ''));
     } catch (e) {
       console.error(e);
-      Alert.alert('❌ Erro', 'Falha ao carregar inventários.');
+      Alert.alert('❌ Erro!', 'Falha ao carregar inventários.');
     }
   }, []);
 
@@ -75,7 +78,7 @@ const Configuracao = ({ navigation }) => {
       const dbPath = `${FileSystem.documentDirectory}SQLite/inventario.db`;
       const fileInfo = await FileSystem.getInfoAsync(dbPath);
       if (!fileInfo.exists) {
-        Alert.alert('❌ Erro', 'Banco de dados não encontrado.');
+        Alert.alert('❌ Erro!', 'Banco de dados não encontrado.');
         return;
       }
       if (await Sharing.isAvailableAsync()) {
@@ -84,11 +87,11 @@ const Configuracao = ({ navigation }) => {
           dialogTitle: 'Exportar inventario.db',
         });
       } else {
-        Alert.alert('⚠️ Atenção', 'O compartilhamento não está disponível neste dispositivo.');
+        Alert.alert('⚠️ Atenção!', 'O compartilhamento não está disponível neste dispositivo.');
       }
     } catch (error) {
       console.error(error);
-      Alert.alert('❌ Erro', 'Falha ao exportar o banco de dados.');
+      Alert.alert('❌ Erro!', 'Falha ao exportar o banco de dados.');
     }
   };
 
@@ -103,7 +106,7 @@ const Configuracao = ({ navigation }) => {
       const file = res.assets?.[0] ?? res;
       const srcUri = file?.uri;
       const srcName = file?.name || 'arquivo selecionado';
-      if (!srcUri) return Alert.alert('❌ Erro', 'Arquivo inválido.');
+      if (!srcUri) return Alert.alert('❌ Erro!', 'Arquivo inválido.');
 
       Alert.alert(
         'Restaurar banco de dados',
@@ -125,10 +128,10 @@ const Configuracao = ({ navigation }) => {
                 }
                 await FileSystem.deleteAsync(destUri, { idempotent: true });
                 await FileSystem.copyAsync({ from: srcUri, to: destUri });
-                Alert.alert('✅ Sucesso', 'Base restaurada. Reabra o app para recarregar o banco.');
+                Alert.alert('✅ Sucesso!', 'Base restaurada. Reabra o app para recarregar o banco.');
               } catch (e) {
                 console.error(e);
-                Alert.alert('❌ Erro', 'Falha ao restaurar o banco de dados.');
+                Alert.alert('❌ Erro!', 'Falha ao restaurar o banco de dados.');
               }
             }
           }
@@ -136,7 +139,7 @@ const Configuracao = ({ navigation }) => {
       );
     } catch (error) {
       console.error(error);
-      Alert.alert('❌ Erro', 'Falha ao iniciar restauração.');
+      Alert.alert('❌ Erro!', 'Falha ao iniciar restauração.');
     }
   };
 
@@ -144,7 +147,7 @@ const Configuracao = ({ navigation }) => {
   const handleImport = async () => {
     const nr = String(nrInventario || '').trim();
     if (!nr) {
-      Alert.alert('⚠️ Atenção', 'Informe o número do inventário.');
+      Alert.alert('⚠️ Atenção!', 'Informe o número do inventário.');
       return;
     }
     setIsImporting(true);
@@ -162,87 +165,80 @@ const Configuracao = ({ navigation }) => {
     }
   };
 
-  // ===== EXPORTAÇÃO: gera Resultado.TXT do inventário SELECIONADO na combobox =====
   // ===== EXPORTAÇÃO: gera Resultado.TXT do inventário DIGITADO na caixa de texto =====
-const exportarResultadoTXT = async () => {
-  try {
-    // agora pega do TextInput
-    const nr = String(nrInventario || '').trim();
-    if (!nr) {
-      Alert.alert('⚠️ Atenção', 'Informe o número do inventário na caixa de texto para exportar.');
-      return;
-    }
+  const exportarResultadoTXT = async () => {
+    try {
+      const nr = String(nrInventario || '').trim();
+      if (!nr) {
+        Alert.alert('⚠️ Atenção!', 'Informe o número do inventário na caixa de texto para exportar.');
+        return;
+      }
 
-    // Busca bens do inventário digitado
-    let rows = [];
-    if (typeof getBensByInventario === 'function') {
-      rows = await getBensByInventario(nr);
-    } else {
-      const all = await getBens();
-      rows = (all || []).filter(r => String(r?.nrInventario ?? '').trim() === nr);
-    }
+      // Busca bens do inventário digitado
+      let rows = [];
+      if (typeof getBensByInventario === 'function') {
+        rows = await getBensByInventario(nr);
+      } else {
+        const all = await getBens();
+        rows = (all || []).filter(r => String(r?.nrInventario ?? '').trim() === nr);
+      }
 
-    if (!rows || rows.length === 0) {
-      Alert.alert('⚠️ Atenção', `Nenhum bem encontrado para o inventário ${nr}.`);
-      return;
-    }
+      if (!rows || rows.length === 0) {
+        Alert.alert('⚠️ Atenção!', `Nenhum bem encontrado para o inventário ${nr}.`);
+        return;
+      }
 
-    // Helpers p/ formatação fixa
-    const s = v => (v == null ? '' : String(v));
-    // placa: preencher com zeros à esquerda até 12 posições (NÃO remove letras)
-    const padLeftZerosAny = (val, len) => {
-      const t = s(val).slice(-len);      // limita ao tamanho
-      return t.padStart(len, '0');       // completa com zeros à esquerda
-    };
-    const padLeftZeros = (val, len) => {
-      const t = s(val).replace(/\D+/g, '').slice(-len);
-      return (''.padStart(len, '0') + t).slice(-len);
-    };
+      // Helpers p/ formatação fixa
+      const s = v => (v == null ? '' : String(v));
+      // placa: preencher com zeros à esquerda até 12 posições (NÃO remove letras)
+      const padLeftZerosAny = (val, len) => {
+        const t = s(val).slice(-len);
+        return t.padStart(len, '0');
+      };
+      const padLeftZeros = (val, len) => {
+        const t = s(val).replace(/\D+/g, '').slice(-len);
+        return (''.padStart(len, '0') + t).slice(-len);
+      };
 
-    // Monta o conteúdo: 1 bem por linha, posições:
-    // 1-12:  placa (zero-pad à esquerda, 12)
-    // 13-15: codigoLocalizacao (lpad 0)
-    // 16-17: codigoEstado      (lpad 0)
-    // 18-19: codigoSituacao    (lpad 0)
-    // 20-22: codigoLocalizacao (repetido, lpad 0)
-    const linhas = rows.map(r => {
-      const placa  = padLeftZerosAny(r?.placa, 12);
-      const codLoc = padLeftZeros(r?.codigoLocalizacao, 3);
-      const codEst = padLeftZeros(r?.codigoEstado, 2);
-      const codSit = padLeftZeros(r?.codigoSituacao ?? r?.codigo_situacao, 2);
-      const codLoc2 = padLeftZeros(r?.codigoLocalizacao, 3);
-      return placa + codLoc + codEst + codSit + codLoc2;
-    });
-
-    const conteudo = linhas.join('\n') + '\n';
-
-    // Grava arquivo e compartilha
-    const outUri = `${FileSystem.documentDirectory}Resultado.TXT`;
-    await FileSystem.writeAsStringAsync(outUri, conteudo, { encoding: FileSystem.EncodingType.UTF8 });
-
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(outUri, {
-        mimeType: 'text/plain',
-        dialogTitle: `Exportar Resultado.TXT (Inv. ${nr})`,
+      // Monta o conteúdo
+      const linhas = rows.map(r => {
+        const placa  = padLeftZerosAny(r?.placa, 12);
+        const codLoc = padLeftZeros(r?.localAntigo, 3);
+        const codEst = padLeftZeros(r?.codigoEstado, 2);
+        const codSit = padLeftZeros(r?.codigoSituacao ?? r?.codigo_situacao, 2);
+        const codLoc2 = padLeftZeros(r?.codigoLocalizacao, 3);
+        return placa + codLoc + codEst + codSit + codLoc2;
       });
-    } else {
-      Alert.alert('✅ Sucesso', `Arquivo gerado em:\n${outUri}`);
+
+      const conteudo = linhas.join('\n') + '\n';
+
+      // Grava arquivo e compartilha
+      const outUri = `${FileSystem.documentDirectory}Resultado.TXT`;
+      await FileSystem.writeAsStringAsync(outUri, conteudo, { encoding: FileSystem.EncodingType.UTF8 });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(outUri, {
+          mimeType: 'text/plain',
+          dialogTitle: `Exportar Resultado.TXT (Inv. ${nr})`,
+        });
+      } else {
+        Alert.alert('✅ Sucesso!', `Arquivo gerado em:\n${outUri}`);
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert('❌ Erro!', 'Falha ao gerar o arquivo Resultado.TXT.');
     }
-  } catch (e) {
-    console.error(e);
-    Alert.alert('❌ Erro', 'Falha ao gerar o arquivo Resultado.TXT.');
-  }
-};
+  };
 
   // ===== Define qual inventário será usado pelas demais telas =====
   const usarInventarioNasTelas = async () => {
     const nr = String(inventarioSelecionado || '').trim();
     if (!nr) {
-      Alert.alert('⚠️ Atenção', 'Selecione um inventário.');
+      Alert.alert('⚠️ Atenção!', 'Selecione um inventário.');
       return;
     }
     await AsyncStorage.setItem('inventario', JSON.stringify({ codigoInventario: nr }));
-    Alert.alert('✅ Sucesso', `Inventário ${nr} definido para trabalho.`);
+    Alert.alert('✅ Sucesso!', `Inventário ${nr} definido para trabalho.`);
   };
 
   // ===== Limpeza com autenticação =====
@@ -253,7 +249,7 @@ const exportarResultadoTXT = async () => {
 
   const confirmarELimpar = () => {
     Alert.alert(
-      '❓ Confirmação',
+      '❓ Confirmação:',
       'Deseja realmente apagar todos os dados das tabelas BENS, LOCAIS e SITUACAO?',
       [
         { text: 'Cancelar', style: 'cancel' },
@@ -264,10 +260,10 @@ const exportarResultadoTXT = async () => {
             try {
               await limparTabelas();
               await carregarInventarios();
-              Alert.alert('✅ Sucesso', 'As tabelas foram limpas com sucesso.');
+              Alert.alert('✅ Sucesso!', 'As tabelas foram limpas com sucesso.');
             } catch (err) {
               console.error(err);
-              Alert.alert('❌ Erro', 'Falha ao limpar as tabelas.');
+              Alert.alert('❌ Erro!', 'Falha ao limpar as tabelas.');
             }
           }
         }
@@ -295,102 +291,133 @@ const exportarResultadoTXT = async () => {
     }
   };
 
+  // ✅ Componente de Checkbox simples (sem libs externas)
+  const CheckBox = ({ value, onChange, label }) => (
+    <TouchableOpacity
+      style={styles.chkRow}
+      onPress={() => onChange(!value)}
+      activeOpacity={0.8}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: value }}
+    >
+      <View style={[styles.checkbox, value && styles.checkboxChecked]}>
+        {value ? <Text style={styles.checkboxMark}>✓</Text> : null}
+      </View>
+      <Text style={styles.chkLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+
+  // Helper para aplicar opacidade quando desabilitado
+  const disabledStyle = (disabled) => (disabled ? { opacity: 0.5 } : null);
+
   return (
     <View style={styles.root}>
-      <View style={styles.container}>
-        {/* Importação: nrInventario NÃO vai para outras telas */}
-        <Text style={styles.sectionTitle}>Importação e Exportação</Text>
-        <View style={styles.backupContainer}>
-          <Text style={styles.labelNumero}>Informe número do inventário:</Text>
-          <TextInput
-            style={styles.inputNumero}
-            placeholder="Ex.: 100"
-            value={nrInventario}
-            onChangeText={setNrInventario}
-            keyboardType="number-pad"
-            autoCapitalize="none"
-            textAlign="center"
-          />
-        </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 200 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
+        <View style={styles.container}>
+          {/* Importação: nrInventario NÃO vai para outras telas */}
+          <Text style={styles.sectionTitle}>Importação e Exportação</Text>
+          <View style={styles.backupContainer}>
+            <Text style={styles.labelNumero}>Informe número do inventário:</Text>
+            <TextInput
+              style={styles.inputNumero}
+              placeholder="Ex.: 100"
+              value={nrInventario}
+              onChangeText={setNrInventario}
+              keyboardType="number-pad"
+              autoCapitalize="none"
+              textAlign="center"
+            />
+          </View>
 
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: '#029DAF' }]}
-          onPress={handleImport}
-          disabled={isImporting}
-        >
-          <Text style={styles.buttonText}>
-            {isImporting ? 'Importando...' : '📥 Importar Arquivos'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Exportação Resultado.TXT do inventário selecionado */}
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: '#029DAF' }]}
-          onPress={exportarResultadoTXT}
-          disabled={!String(nrInventario || '').trim()}
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: '#029DAF' }, disabledStyle(!String(nrInventario || '').trim())]}
+            onPress={handleImport}
+            disabled={!String(nrInventario || '').trim()}
+            //disabled={isImporting}
           >
-          <Text style={styles.buttonText}>📤 Exportar Arquivos</Text>
-        </TouchableOpacity>
+            <Text style={styles.buttonText}>
+              {isImporting ? 'Importando...' : '📥 Importar Arquivos'}
+            </Text>
+          </TouchableOpacity>
 
-        {!!statusMsg && <Text style={styles.statusMsg}>{statusMsg}</Text>}
-
-        {/* Seleção do inventário para uso nas demais telas */}
-        <View style={styles.divider} />
-        <Text style={[styles.sectionTitle, { marginTop: 30 }]}>Inventário de Trabalho Atual</Text>
-        
-      <View style={styles.pickerRow}>
-        <Text style={styles.pickerLabel}>Selecione o inventário:</Text>
-        <View style={styles.pickerBox}>
-          <Picker
-            selectedValue={inventarioSelecionado}
-            onValueChange={setInventarioSelecionado}
-            dropdownIconColor="#374151"
+          {/* Exportação Resultado.TXT do inventário digitado */}
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: '#029DAF' }, disabledStyle(!String(nrInventario || '').trim())]}
+            onPress={exportarResultadoTXT}
+            disabled={!String(nrInventario || '').trim()}
           >
-            {inventarios.length === 0 ? (
-              <Picker.Item label="(nenhum inventário encontrado)" value="" />
-            ) : (
-              inventarios.map(v => <Picker.Item key={v} label={v} value={v} />)
-            )}
-          </Picker>
+            <Text style={styles.buttonText}>📤 Exportar Arquivos</Text>
+          </TouchableOpacity>
+
+          {!!statusMsg && <Text style={styles.statusMsg}>{statusMsg}</Text>}
+
+          {/* Seleção do inventário para uso nas demais telas */}
+          <View style={styles.divider} />
+          <Text style={[styles.sectionTitle, { marginTop: 30 }]}>Inventário de Trabalho Atual</Text>
+
+          <View style={styles.pickerRow}>
+            <Text style={styles.pickerLabel}>Selecione o inventário:</Text>
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={inventarioSelecionado}
+                onValueChange={setInventarioSelecionado}
+                dropdownIconColor="#374151"
+              >
+                {inventarios.length === 0 ? (
+                  <Picker.Item label="(nenhum inventário encontrado)" value="" />
+                ) : (
+                  inventarios.map(v => <Picker.Item key={v} label={v} value={v} />)
+                )}
+              </Picker>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: '#029DAF' }]}
+            onPress={usarInventarioNasTelas}
+          >
+            <Text style={styles.buttonText}>✅ Confirma</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-
-   
-
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: '#029DAF' }]}
-          onPress={usarInventarioNasTelas}
-        >
-          <Text style={styles.buttonText}>✅ Confirma</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 140 }} />
-      </View>
+      </ScrollView>
 
       {/* FOOTER fixo */}
       <View style={styles.footer}>
         {/* Linha preta acima do título */}
         <View style={styles.divider} />
-        <Text style={[styles.sectionTitle, { marginTop: 30 }]}>Parâmetros de Segurança</Text>
+        {/* ✅ Checkbox que habilita as ações */}
+        <CheckBox
+          value={habilitarAcoes}
+          onChange={setHabilitarAcoes}
+          label="Parâmetros de Segurança"
+        />
+
         <View style={styles.backupContainer}>
           <TouchableOpacity
-            style={[styles.buttonBackup, { backgroundColor: '#029DAF' }]}
+            style={[styles.buttonBackup, { backgroundColor: '#029DAF' }, disabledStyle(!habilitarAcoes)]}
             onPress={exportarBanco}
+            disabled={!habilitarAcoes}
           >
             <Text style={styles.buttonText}>💾 Backup</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.buttonBackup, { backgroundColor: '#029DAF' }]}
+            style={[styles.buttonBackup, { backgroundColor: '#029DAF' }, disabledStyle(!habilitarAcoes)]}
             onPress={restaurarBanco}
+            disabled={!habilitarAcoes}
           >
             <Text style={styles.buttonText}>🔄 Restaura</Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
-          style={[styles.button, styles.buttonDanger]}
-          onPress={solicitarRevalidacao}
+          style={[styles.button, styles.buttonDanger, disabledStyle(!habilitarAcoes)]}
+          onPress={habilitarAcoes ? solicitarRevalidacao : () => {}}
+          disabled={!habilitarAcoes}
         >
           <Text style={styles.buttonText}>🗑 Limpar Base de Dados</Text>
         </TouchableOpacity>
@@ -453,14 +480,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 1, borderColor: '#e5e7eb',
     borderRadius: 6,
-    padding: 10, fontSize: 14, color: '#111827',
+    padding: 10, fontSize: 16, color: '#111827',
     marginBottom: 10
   },
   statusMsg: { marginTop: 8, color: '#374151' },
   pickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 100 // espaço entre label e picker
+    gap: 50 // espaço entre label e picker
   },
   pickerLabel: {
     color: '#374151',
@@ -473,9 +500,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e7eb',
     borderRadius: 6,
-    textAlign: 'right'
+    textAlign:'right'
   },
-  
+
   button: { padding: 15, borderRadius: 8, marginTop: 10, alignItems: 'center' },
   buttonBackup: { flex: 1, marginHorizontal: 4, borderRadius: 8, padding: 15, alignItems: 'center' },
   buttonDanger: { backgroundColor: '#ff6961' },
@@ -484,11 +511,24 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', left: 20, right: 20, bottom: 20 },
   backupContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   divider: {
-  borderBottomColor: '#000', // preto
-  borderBottomWidth: 1,      // espessura
-  marginTop: 10
-},
+    borderBottomColor: '#000', // preto
+    borderBottomWidth: 1,      // espessura
+    marginTop: 10,
+  },
 
+  // ✅ Checkbox styles
+  chkRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, marginBottom: 6 },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 4,
+    borderWidth: 2, borderColor: '#029DAF',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#fff', marginRight: 10
+  },
+  checkboxChecked: {
+    backgroundColor: '#029DAF',
+  },
+  checkboxMark: { color: '#fff', fontSize: 16, lineHeight: 16, fontWeight: 'bold' },
+  chkLabel: { color: '#374151', flex: 1 },
 
   // Modal
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center', padding: 20 },

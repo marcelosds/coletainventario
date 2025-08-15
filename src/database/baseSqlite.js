@@ -16,7 +16,34 @@ if (!globalThis.Buffer) {
 const db = SQLite.openDatabase('inventario.db');
 export const importEvents = new EventEmitter();
 
-// ---------------------- Funções auxiliares ----------------------
+/* ---------------------- Utilidades de schema/migração ---------------------- */
+function addColumnIfNotExists(table, column, typeSQL) {
+  return new Promise((resolve, reject) => {
+    db.readTransaction(tx => {
+      tx.executeSql(
+        `PRAGMA table_info(${table});`,
+        [],
+        (_, { rows }) => {
+          const exists = rows._array.some(r => r.name === column);
+          if (exists) return resolve(false);
+
+          db.transaction(
+            tx2 => {
+              tx2.executeSql(
+                `ALTER TABLE ${table} ADD COLUMN ${column} ${typeSQL};`
+              );
+            },
+            err => reject(err),
+            () => resolve(true)
+          );
+        },
+        (_, err) => reject(err)
+      );
+    });
+  });
+}
+
+/* ---------------------- Funções auxiliares ---------------------- */
 /** Lê um arquivo texto como Base64 e decodifica em Windows-1252 */
 async function readTextWin1252(uri) {
   const base64 = await FileSystem.readAsStringAsync(uri, {
@@ -26,7 +53,7 @@ async function readTextWin1252(uri) {
   return iconv.decode(buf, 'win1252');
 }
 
-/** Código: remove zeros à esquerda; se ficar vazio, retorna '0' */
+/** Código do bem: remove zeros à esquerda; se ficar vazio, retorna '0' */
 function normalizeCodigo(str) {
   const s = String(str || '').trim().replace(/^0+/, '');
   return s === '' ? '0' : s;
@@ -40,7 +67,7 @@ function normalizePlaca(str) {
   return semZeros === '' ? '' : semZeros;
 }
 
-// ---------------------- Usuários ----------------------
+/* ---------------------- Usuários ---------------------- */
 export const createUserTable = () => {
   db.transaction(tx => {
     tx.executeSql(
@@ -86,14 +113,68 @@ export const authenticateUser = (email, password) => {
   });
 };
 
-// ---------------------- Criação das tabelas ----------------------
+// Exclui o usuário cujo e-mail foi informado.
+export const getUserIdByEmail = (email) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const emailTrim = String(email || '').trim();
+      if (!emailTrim) {
+        return reject(new Error('E-mail inválido.'));
+      }
+
+      db.transaction(tx => {
+        // 1) Encontra o ID pelo e-mail
+        tx.executeSql(
+          'SELECT id FROM users WHERE email = ? LIMIT 1;',
+          [emailTrim],
+          (_, { rows }) => {
+            if (!rows.length) {
+              resolve({ found: false, deleted: false, id: null, email: emailTrim });
+              return;
+            }
+
+            const id = rows.item(0).id;
+
+            // 2) Exclui o usuário encontrado
+            tx.executeSql(
+              'DELETE FROM users WHERE id = ?;',
+              [id],
+              async () => {
+                // 3) Limpa o AsyncStorage se o e-mail salvo for o mesmo
+                try {
+                  const stored = await AsyncStorage.getItem('userEmail');
+                  if (stored && stored === emailTrim) {
+                    await AsyncStorage.removeItem('userEmail');
+                  }
+                } catch (_) {
+                  // ignora erro de AsyncStorage
+                }
+
+                resolve({ found: true, deleted: true, id, email: emailTrim });
+              },
+              (_, errDel) => {
+                reject(errDel);
+                return true; // interrompe a transação em caso de erro
+              }
+            );
+          },
+          (_, errSel) => {
+            reject(errSel);
+            return true;
+          }
+        );
+      });
+    } catch (err) {
+      reject(err);
+    }
+  });
+};
+
+/* ---------------------- Criação das tabelas ---------------------- */
 export const initDB = () => {
   db.transaction(
-   
     tx => {
-      //tx.executeSql(
-      //`DROP TABLE BENS;`
-      //);
+      // Tabela BENS já com localAntigo
       tx.executeSql(`CREATE TABLE IF NOT EXISTS BENS (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         codigo TEXT,
@@ -102,7 +183,13 @@ export const initDB = () => {
         localizacaoNome TEXT,
         estadoConservacaoNome TEXT,
         situacaoNome TEXT,
+
+        /* localAntigo: código de localização que veio do arquivo BENS.TXT */
+        localAntigo TEXT,
+
+        /* codigoLocalizacao: código escolhido no combobox Localização (após inventário) */
         codigoLocalizacao INTEGER,
+
         codigoEstado INTEGER,
         codigoSituacao INTEGER,
         StatusBem TEXT,
@@ -129,7 +216,14 @@ export const initDB = () => {
       );`);
     },
     error => console.error('Erro ao criar tabelas:', error),
-    () => {
+    async () => {
+      // Migração suave: garante que a coluna localAntigo exista em BENS
+      try {
+        await addColumnIfNotExists('BENS', 'localAntigo', 'TEXT');
+      } catch (e) {
+        console.warn('Aviso ao migrar coluna localAntigo:', e?.message || e);
+      }
+
       // Popula ESTADO com valores padrão se estiver vazia
       db.transaction(tx => {
         tx.executeSql(`SELECT COUNT(*) as total FROM ESTADO`, [], (_, { rows }) => {
@@ -157,7 +251,7 @@ export const initDB = () => {
 // Inicializa banco
 initDB();
 
-// ---------------------- Importação ----------------------
+/* ---------------------- Importação ---------------------- */
 export const importarArquivosTXT = async (nrInventario) => {
   try {
     const result = await DocumentPicker.getDocumentAsync({ multiple: true, type: 'text/plain' });
@@ -174,9 +268,7 @@ export const importarArquivosTXT = async (nrInventario) => {
       throw new Error('Todos os três arquivos (BENS, LOCAIS, SITUACAO) são necessários.');
     }
 
-    // Se desejar começar “zerado”:
-    // await limparTabelas();
-
+    await limparTabelas01();
     await importarLocais(fileLocais.uri);
     await importarSituacao(fileSituacao.uri);
     await importarBens(fileBens.uri, nrInventario); // grava nrInventario em cada linha
@@ -244,15 +336,21 @@ const importarBens = async (uri, nrInventario) => {
             const localizacaoNome = linha.substring(72, 102).trim();
             const estadoConservacaoNome = linha.substring(102, 117).trim();
             const situacaoNome = linha.substring(117, 147).trim();
-            const codigoLocalizacao = linha.substring(147, 150).trim();
+
+            // Código de localização que VEIO do arquivo (guardar em localAntigo)
+            const codigoLocalizacaoArquivo = linha.substring(147, 150).trim();
+
             const codigoEstado = linha.substring(150, 152).trim();
             const codigoSituacao = linha.substring(152, 154).trim();
 
+            // Na importação:
+            // - localAntigo recebe o código do arquivo
+            // - codigoLocalizacao fica NULL (será definido via combobox depois)
             tx.executeSql(
               `INSERT INTO BENS (
                 codigo, placa, descricao, localizacaoNome, estadoConservacaoNome, situacaoNome,
-                codigoLocalizacao, codigoEstado, codigoSituacao, nrInventario
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                localAntigo, codigoLocalizacao, codigoEstado, codigoSituacao, nrInventario
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 codigo,
                 placa,
@@ -260,7 +358,8 @@ const importarBens = async (uri, nrInventario) => {
                 localizacaoNome,
                 estadoConservacaoNome,
                 situacaoNome,
-                codigoLocalizacao,
+                String(codigoLocalizacaoArquivo || ''), // preserva como veio (trim)
+                codigoLocalizacaoArquivo,                                   // codigoLocalizacao definido depois
                 codigoEstado,
                 codigoSituacao,
                 String(nrInventario || '').trim(),
@@ -293,12 +392,11 @@ const importarBens = async (uri, nrInventario) => {
   });
 };
 
-// ---------------------- Limpar tabelas (com reset de AUTOINCREMENT) ----------------------
+/* ---------------------- Limpar tabelas (com reset de AUTOINCREMENT) ---------------------- */
 export const limparTabelas = () => {
   return new Promise((resolve, reject) => {
     db.transaction(
       tx => {
-        // Desabilita FKs (em geral já é OFF no SQLite móvel)
         tx.executeSql('PRAGMA foreign_keys = OFF;');
 
         tx.executeSql(
@@ -331,7 +429,6 @@ export const limparTabelas = () => {
           }
         );
 
-        // Reset de autoincremento
         tx.executeSql(
           "DELETE FROM sqlite_sequence WHERE name IN ('BENS','LOCAIS','SITUACAO');",
           [],
@@ -356,7 +453,58 @@ export const limparTabelas = () => {
   });
 };
 
-// ---------------------- Consultas ----------------------
+/* ---------------------- Limpar LOCAIS/SITUACAO (sem limpar BENS) ---------------------- */
+export const limparTabelas01 = () => {
+  return new Promise((resolve, reject) => {
+    db.transaction(
+      tx => {
+        tx.executeSql('PRAGMA foreign_keys = OFF;');
+
+        tx.executeSql(
+          'DELETE FROM LOCAIS;',
+          [],
+          () => console.log('LOCAIS: registros apagados.'),
+          (_, err) => {
+            console.error('Erro ao limpar LOCAIS:', err);
+            return true;
+          }
+        );
+
+        tx.executeSql(
+          'DELETE FROM SITUACAO;',
+          [],
+          () => console.log('SITUACAO: registros apagados.'),
+          (_, err) => {
+            console.error('Erro ao limpar SITUACAO:', err);
+            return true;
+          }
+        );
+
+        tx.executeSql(
+          "DELETE FROM sqlite_sequence WHERE name IN ('LOCAIS','SITUACAO');",
+          [],
+          () => console.log('sqlite_sequence resetada para LOCAIS/SITUACAO.'),
+          (_, err) => {
+            console.error('Erro ao resetar sqlite_sequence:', err);
+            return true;
+          }
+        );
+
+        tx.executeSql('PRAGMA foreign_keys = ON;');
+      },
+      err => {
+        console.error('Erro na transação de limpeza:', err);
+        reject(err);
+      },
+      () => {
+        console.log('✅ Limpeza concluída.');
+        resolve();
+      }
+    );
+  });
+};
+
+/* ---------------------- Consultas ---------------------- */
 export const getBens = () => {
   return new Promise((resolve, reject) => {
     db.transaction(
@@ -428,7 +576,11 @@ export const getLocalizaSQLite = (placaOuCodigo) => {
   });
 };
 
-// ---------------------- Atualização com descrições do combobox ----------------------
+/* ---------------------- Atualização via combobox ----------------------
+   Aqui, mantemos:
+   - codigoLocalizacao: recebe o código selecionado no combobox
+   - localAntigo: permanece com o código que veio do arquivo BENS.TXT
+----------------------------------------------------------------------- */
 export const atualizarInventario = (
   cdLocal,
   cdEstado,
@@ -483,7 +635,7 @@ export const atualizarInventario = (
   });
 };
 
-// Retorna lista de códigos de inventário já gravados (ajuste o nome da coluna/tabela se necessário)
+// Retorna lista de códigos de inventário já gravados
 export const listarInventarios = async () => {
   return new Promise((resolve, reject) => {
     db.readTransaction(tx => {
@@ -499,5 +651,3 @@ export const listarInventarios = async () => {
     });
   });
 };
-
-

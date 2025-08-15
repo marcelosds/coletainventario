@@ -17,12 +17,12 @@ const Leitura = () => {
   const [texto, setTexto] = useState("Aguardando leitura...");
   const [corTexto, setCorTexto] = useState("#008000");
   const [bensData, setBensData] = useState([]);
-  const [isBtnLimparDisabled, setBtnLimparDisabled] = useState(false);
+  const [isInputEmpty, setIsInputEmpty] = useState(true); // controla Limpar e Localizar
   const [isBtnGravarDisabled, setBtnGravarDisabled] = useState(true);
   const [isEditable, setIsEditable] = useState(true);
 
   const [hasPermission, setHasPermission] = useState(null);
-  const [cameraActive, setCameraActive] = useState(false); // << controla render da câmera
+  const [cameraActive, setCameraActive] = useState(false);
   const [scanned, setScanned] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,6 @@ const Leitura = () => {
   const [selectedSituacao, setSelectedSituacao] = useState(null);
   const [fields, setFields] = useState({ placa:'', codigo:'', descricao:'' });
 
-  // Pede permissão de câmera na montagem
   useEffect(() => {
     (async () => {
       try {
@@ -46,7 +45,6 @@ const Leitura = () => {
     })();
   }, []);
 
-  // Carrega dados locais ao focar a tela e ativa a câmera
   useFocusEffect(React.useCallback(() => {
     let isMounted = true;
     const load = async () => {
@@ -71,13 +69,12 @@ const Leitura = () => {
         Alert.alert('❌ Erro', 'Não foi possível carregar dados locais.');
       }
     };
-    // Ao entrar na tela: reseta e ativa o scanner
+
     setScanned(false);
     setCameraActive(true);
     handleAguardandoLeitura();
     load();
 
-    // Ao sair da tela: desativa câmera
     return () => {
       isMounted = false;
       setCameraActive(false);
@@ -88,7 +85,7 @@ const Leitura = () => {
   const handleAguardandoLeitura = () => { setTexto("Aguardando leitura..."); setCorTexto("green"); };
 
   const handleBarCodeScanned = ({ type, data }) => {
-    setScanned(true);          // pausa o scanner
+    setScanned(true);
     setLoading(true);
     fetchBemData(String(data || '').trim());
     handleLeituraRealizada();
@@ -107,6 +104,7 @@ const Leitura = () => {
       setSelectedSituacao(bem.codigoSituacao);
       setBtnGravarDisabled(false);
       setIsEditable(false);
+      setIsInputEmpty(false); // habilita botões
     } catch (error) {
       Alert.alert('⚠️ Atenção:', 'Bem não localizado nesse inventário!');
     } finally {
@@ -121,7 +119,6 @@ const Leitura = () => {
     if (bemEncontrado) {
       fetchBemData(bemEncontrado.codigo || bemEncontrado.placa);
       handleLeituraRealizada();
-      setBtnLimparDisabled(true);
       setBtnGravarDisabled(false);
       setIsEditable(false);
     } else {
@@ -129,7 +126,12 @@ const Leitura = () => {
     }
   };
 
-  const handleInputChange = (field, value) => setFields({ ...fields, [field]: value });
+  const handleInputChange = (field, value) => {
+    setFields({ ...fields, [field]: value });
+    if (field === 'placa') {
+      setIsInputEmpty(value.trim() === '');
+    }
+  };
 
   const salvar = async () => {
     await saveData();
@@ -138,8 +140,6 @@ const Leitura = () => {
   const saveData = async () => {
     try {
       const placaInput = fields.placa.trim() ? fields.placa.trim() : fields.codigo;
-
-      // pega os labels atuais dos pickers
       const localLabel  = localizacoes.find(o => o.value === selectedLocalizacao)?.label ?? null;
       const estadoLabel = estados.find(o => o.value === selectedEstado)?.label ?? null;
       const situLabel   = situacoes.find(o => o.value === selectedSituacao)?.label ?? null;
@@ -148,9 +148,9 @@ const Leitura = () => {
         selectedLocalizacao,
         selectedEstado,
         selectedSituacao,
-        null,            // obs
+        null,
         placaInput,
-        null,            // status
+        null,
         {
           localizacaoNome: localLabel,
           estadoConservacaoNome: estadoLabel,
@@ -158,21 +158,20 @@ const Leitura = () => {
         }
       );
 
-      Alert.alert('✅ Sucesso', 'Dados do bem salvos com sucesso.');
+      Alert.alert('✅ Sucesso!', 'Dados do bem salvos com sucesso.');
 
-      // Limpa e reativa o scanner para nova leitura
       setFields({ placa:'', codigo:'', descricao:'' });
       setSelectedLocalizacao(null);
       setSelectedEstado(null);
       setSelectedSituacao(null);
       setIsEditable(true);
       setBtnGravarDisabled(true);
+      setIsInputEmpty(true); // desabilita após salvar
       handleAguardandoLeitura();
-      setScanned(false);        // libera para próxima leitura
+      setScanned(false);
     } catch (error) {
       console.error(error);
-      Alert.alert('❌ Erro', 'Não foi possível salvar os dados do bem.');
-      // Mesmo em erro, permita tentar outra leitura
+      Alert.alert('❌ Erro!', 'Não foi possível salvar os dados do bem.');
       setScanned(false);
     }
   };
@@ -231,194 +230,101 @@ const Leitura = () => {
         />
 
         <RNPickerSelect
-        style={pickerSelectStyles}
+          style={pickerSelectStyles}
           placeholder={{ label:'Localização', value: null }}
           onValueChange={(v)=>setSelectedLocalizacao(v)}
           items={localizacoes}
           value={selectedLocalizacao}
         />
         <RNPickerSelect
-        style={pickerSelectStyles}
+          style={pickerSelectStyles}
           placeholder={{ label:'Estado de Conservação', value: null }}
           onValueChange={(v)=>setSelectedEstado(v)}
           items={estados}
           value={selectedEstado}
         />
         <RNPickerSelect
-        style={pickerSelectStyles}
+          style={pickerSelectStyles}
           placeholder={{ label:'Situação', value: null }}
           onValueChange={(v)=>setSelectedSituacao(v)}
           items={situacoes}
           value={selectedSituacao}
         />
 
-        
-
         {loading && <Text>Carregando...</Text>}
       </ScrollView>
-      {/* FOOTER FIXO */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.footerBtn]}
-            activeOpacity={0.8}
-            onPress={() => {
-              setScanned(false);
-              handleAguardandoLeitura();
-              setBtnLimparDisabled(false);
-              setBtnGravarDisabled(true);
-              setSelectedLocalizacao(null);
-              setSelectedEstado(null);
-              setSelectedSituacao(null);
-              setFields({ placa: '', codigo: '', descricao: '' });
-              setIsEditable(true);
-            }}
-          >
-            <Text style={styles.footerBtnText}>❌ Limpar</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.footerBtn,
-              isBtnLimparDisabled && styles.footerBtnDisabled,
-            ]}
-            activeOpacity={0.8}
-            onPress={handleLocalizar}
-            disabled={isBtnLimparDisabled}
-          >
-            <Text style={styles.footerBtnText}>🔍 Localizar</Text>
-          </TouchableOpacity>
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.footerBtn, isInputEmpty && styles.footerBtnDisabled]}
+          activeOpacity={0.8}
+          onPress={() => {
+            setScanned(false);
+            handleAguardandoLeitura();
+            setBtnGravarDisabled(true);
+            setSelectedLocalizacao(null);
+            setSelectedEstado(null);
+            setSelectedSituacao(null);
+            setFields({ placa: '', codigo: '', descricao: '' });
+            setIsEditable(true);
+            setIsInputEmpty(true);
+          }}
+          disabled={isInputEmpty}
+        >
+          <Text style={styles.buttonText}>❌ Limpar</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.footerBtn,
-              isBtnGravarDisabled && styles.footerBtnDisabled,
-            ]}
-            activeOpacity={0.8}
-            onPress={() => { salvar(); setBtnLimparDisabled(false); }}
-            disabled={isBtnGravarDisabled}
-          >
-            <Text style={styles.footerBtnText}>💾 Gravar</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.footerBtn, isInputEmpty && styles.footerBtnDisabled]}
+          activeOpacity={0.8}
+          onPress={handleLocalizar}
+          disabled={isInputEmpty}
+        >
+          <Text style={styles.buttonText}>🔍 Localizar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.footerBtn, isBtnGravarDisabled && styles.footerBtnDisabled]}
+          activeOpacity={0.8}
+          onPress={() => { salvar(); }}
+          disabled={isBtnGravarDisabled}
+        >
+          <Text style={styles.buttonText}>💾 Gravar</Text>
+        </TouchableOpacity>
+      </View>
     </View>
-    
   );
 };
 
 const styles = StyleSheet.create({
-  container:{ 
-    flex:1, 
-    justifyContent:'center', 
-    padding:20 
-  },
-  scannerContainer:{ 
-    flex:1, 
-    maxHeight:110, 
-    minHeight:10, 
-    marginBottom:20 },
-  camera:{ flex:1, padding:10 
-  },
-  redLine:{ 
-    position:'absolute', 
-    top:'45%', 
-    left:0, 
-    right:0, 
-    height:1, 
-    backgroundColor:'red' 
-  },
-  text1:{ 
-    marginTop:6, 
-    textAlign:'center' 
-  },
-  formContainer:{ 
-    flex:1, 
-    marginTop:1 
-  },
-  input:{ 
-    height:40, 
-    marginBottom:10, 
-    padding:10, 
-    fontSize:16, 
-    backgroundColor:'#fff', 
-    textAlign:'left',
-    color:'#808080'
-  },
-  inputDescricao:{ 
-    height:65, 
-    marginBottom:10, 
-    padding:10, 
-    fontSize:16,
-    color:'#808080', 
-    backgroundColor:'#fff' 
-  },
-  buttonContainer:{ 
-    flexDirection:'row', 
-    justifyContent:'space-between' , 
-    marginTop:40 
-  },
- 
+  container:{ flex:1, justifyContent:'center', padding:20 },
+  scannerContainer:{ flex:1, maxHeight:110, minHeight:10, marginBottom:20 },
+  camera:{ flex:1, padding:10 },
+  redLine:{ position:'absolute', top:'45%', left:0, right:0, height:1, backgroundColor:'red' },
+  text1:{ marginTop:6, textAlign:'center' },
+  formContainer:{ flex:1, marginTop:1 },
+  input:{ height:40, marginBottom:10, padding:10, fontSize:16, backgroundColor:'#fff', textAlign:'left', color:'#808080' },
+  inputDescricao:{ height:65, marginBottom:10, padding:10, fontSize:16, color:'#808080', backgroundColor:'#fff' },
   footer: {
-  position: 'absolute',
-  left: 0,
-  right: 0,
-  bottom: 0,
-  flexDirection: 'row',
-  alignItems: 'center',
-  paddingHorizontal: 10,
-  paddingVertical: 40,
-  backgroundColor: '#f2efefff',
-  borderTopWidth: 1,
-  borderTopColor: '#e5e7eb',
-  // sombra
-  shadowColor: '#000',
-  shadowOpacity: 0.08,
-  shadowRadius: 6,
-  shadowOffset: { width: 0, height: -2 },
-  elevation: 8,
-},
-footerBtn: {
-  flex: 1,
-  marginHorizontal: 6,
-  backgroundColor: '#029DAF',
-  paddingVertical: 14,
-  borderRadius: 5,
-  alignItems: 'center',
-  justifyContent: 'center',
-},
-footerBtnDisabled: {
-  opacity: 0.5,           
-},
-footerBtnText: {
-  color: '#fff',
-
-  fontWeight: 'bold',
-  fontWeight: '600',
-},
-
+    position: 'absolute', left: 0, right: 0, bottom: 0,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 10, paddingVertical: 40,
+    backgroundColor: '#f2efefff',
+    borderTopWidth: 1, borderTopColor: '#e5e7eb',
+    shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6,
+    shadowOffset: { width: 0, height: -2 }, elevation: 8,
+  },
+  footerBtn: {
+    flex: 1, marginHorizontal: 6, backgroundColor: '#029DAF',
+    paddingVertical: 14, borderRadius: 8, alignItems: 'center', justifyContent: 'center',
+  },
+  footerBtnDisabled: { opacity: 0.5 },
+  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
 });
 
-// Estilos específicos para o RNPickerSelect
 const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    borderColor: 'gray',
-    borderRadius: 5,
-    color: '#808080',
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    textAlign: 'left'
-  },
-  inputAndroid: {
-    fontSize: 16,
-    paddingHorizontal: 10,
-    borderColor: 'gray',
-    borderRadius: 10,
-    color: '#808080',
-    marginBottom: 8,
-    backgroundColor: '#fff',
-    textAlign: 'left'
-  },
+  inputIOS: { fontSize: 16, paddingHorizontal: 10, borderColor: 'gray', borderRadius: 5, color: '#808080', marginBottom: 8, backgroundColor: '#fff', textAlign: 'left' },
+  inputAndroid: { fontSize: 16, paddingHorizontal: 10, borderColor: 'gray', borderRadius: 10, color: '#808080', marginBottom: 8, backgroundColor: '#fff', textAlign: 'left' },
 });
 
 export default Leitura;

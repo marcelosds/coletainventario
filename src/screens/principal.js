@@ -1,151 +1,171 @@
+import React, { useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import Leitura from "./leitura";
-import Configuracao from "./configuracao";
-import Listabens from './listabens';
-import { Button, View, Text, StyleSheet, Alert, TextInput } from 'react-native';
+import { Button, View, Text, StyleSheet, Alert, TextInput, TouchableOpacity } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
-import React, { useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Checkbox from 'expo-checkbox';
-import { getUserIdByEmail } from '../database/baseSqlite';
 
+import Leitura from "./leitura";
+import Configuracao from "./configuracao";
+import Listabens from './listabens';
+import { getUserIdByEmail } from '../database/baseSqlite';
 
 const Tab = createBottomTabNavigator();
 
-
-// Definir se usuário pode rá ser excluido ou não
-const handleCheckboxChange = (newValue) => {
-setIsEditable(newValue);
-};
-
 function Principal() {
+  return (
+    <Tab.Navigator screenOptions={{ tabBarShowLabel: true }}>
+      <Tab.Screen
+        name="Leitura das Placas"
+        component={Leitura}
+        options={{
+          headerShown: true,
+          headerTitleAlign: 'center',
+          headerTintColor: '#029DAF',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="search-outline" size={size} color={color} />
+          ),
+        }}
+      />
 
-  //const [apiLink, setApiLink] = useState('');  
-  //const [isConnected, setIsConnected] = useState(false); // Estado para rastrear a conexão
-  
-  // Carrega os dados da configuração para o AsyncStorage
-  useFocusEffect(
-    React.useCallback(() => {
-    const loadData = async () => {
-      try {
-        const json = await AsyncStorage.getItem('inventario');
-        const inventario = JSON.parse(json);
+      <Tab.Screen
+        name="Lista de Bens"
+        component={Listabens}
+        options={{
+          headerShadow: true,
+          headerTitleAlign: "center",
+          headerTintColor: '#029DAF',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list-outline" size={size} color={color} />
+          ),
+        }}
+      />
 
-        if (inventario) {
-          setApiLink(inventario.apiLink);
-      
-        }
-      } catch (error) {
-        Alert.alert('Erro', 'Localizações e Situações não foram carregadas!');
-      }
-    };
+      <Tab.Screen
+        name="Configurações"
+        component={Configuracao}
+        options={{
+          headerShadow: true,
+          headerTitleAlign: "center",
+          headerTintColor: '#029DAF',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" size={size} color={color} />
+          ),
+        }}
+      />
 
-    loadData(); // Chama a função para carregar os dados
-    }, [])); // Executa uma vez na montagem do componente
-
-  
-  return <Tab.Navigator screenOptions={{ tabBarShowLabel: true }}>
-
-        <Tab.Screen name="Leitura das Placas" component={Leitura} options={{
-            headerShown: true, headerTitleAlign: 'center',
-            tabBarIcon: ({ color, size }) => (
-                <Ionicons name="search-outline" size={size} color={color} />
-            ),
-        }} />
-
-        <Tab.Screen name="Lista de Bens" component={Listabens} options={{
-            headerShadow: true, headerTitleAlign: "center",
-            tabBarIcon: ({ color, size }) => (
-                <Ionicons name="list-outline" size={size} color={color} />
-            ),
-        }} />           
-
-        <Tab.Screen name="Configurações" component={Configuracao} options={{
-            headerShadow: true, headerTitleAlign: "center",
-            tabBarIcon: ({ color, size }) => (
-                <Ionicons name="settings-outline" size={size} color={color} />
-            ),
-        }} />
-
-        <Tab.Screen name="Sair" component={Sair} options={{
-            headerTitleAlign: "center",
-            tabBarIcon: ({ color, size }) => (
-                <Ionicons name="exit-outline" size={size} color={color} />
-            ),
-        }} />
-            
+      <Tab.Screen
+        name="Sair"
+        component={Sair}
+        options={{
+          headerTitleAlign: "center",
+          headerTintColor: '#029DAF',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="exit-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tab.Navigator>
-
-
-
+  );
 }
 
-// Componente para tela de Logout
+// Componente para tela de Logout / Exclusão de conta
 const Sair = ({ navigation }) => {
+  const [emailText, setEmail] = useState('');
+  const [isChecked, setIsChecked] = useState(false);     // controla checkbox
+  const [isEditable, setIsEditable] = useState(false);   // controla edição do TextInput
 
-    const [emailText, setEmail] = useState('');
-
-    const [isChecked, setIsChecked] = useState(false); // Estado da Checkbox
-    const [isEditable, setIsEditable] = useState(false); // Estado para controle de edição
-
-    const handleCheckboxChange = (newValue) => {
-      setIsChecked(newValue); // Atualiza o estado da Checkbox
-      setIsEditable(newValue);
-    };
-
-    const handleLogout = async () => {
-      try {
-        Alert.alert('Logout', 'Você foi desconectado com sucesso!');
-        navigation.navigate('Login'); // Navegue para a tela de login
-        // Redirecionar ou atualizar o estado se necessário
-      } catch (error) {
-        //console.error('Erro ao fazer logout:', error);
-        //Alert.alert('Erro', 'Não foi possível deslogar. Tente novamente.');
-      }
-      
-    };
-
-   
-    const excluirConta = async () => {
-
-      if ( emailText ) {
-
-        const email = emailText;
-
-        await getUserIdByEmail(email);
-
-      } else {
-        Alert.alert('Erro:', 'Informe o email do usuário!');
-      }
-
+  const handleCheckboxChange = (newValue) => {
+    setIsChecked(newValue);
+    setIsEditable(newValue);
+    if (!newValue) {
+      // se desmarcar, limpa e desabilita
       setEmail('');
+    }
+  };
 
-    };
+  //const setEmail = (txt) => setEmailText(txt);
 
-    
-    return (
-      <>
+  const handleLogout = async () => {
+    try {
+      Alert.alert('🚪 Logout!', 'Você foi desconectado com sucesso.');
+      navigation.navigate('Login');
+    } catch (error) {
+      // manter silencioso conforme seu padrão
+    }
+  };
+
+  const excluirConta = async () => {
+    if (!isChecked) {
+      Alert.alert('⚠️ Aviso', 'Marque a opção para confirmar que deseja excluir sua conta.');
+      return;
+    }
+
+    if (emailText) {
+      const email = emailText.trim();
+
+      try {
+        const res = await getUserIdByEmail(email);
+
+        if (!res.found) {
+          Alert.alert('⚠️ Aviso', 'Usuário não encontrado.');
+        } else if (res.deleted) {
+          Alert.alert('✅ Sucesso', `Usuário ${res.email} foi excluído.`);
+
+          // Deslogar e limpar chaves relacionadas
+          await AsyncStorage.removeItem('userEmail');
+          await AsyncStorage.removeItem('isEnabled');
+
+          // Redireciona para a tela de login (reset stack)
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        }
+      } catch (err) {
+        console.error(err);
+        Alert.alert('❌ Erro!', 'Falha ao excluir o usuário.');
+      }
+    } else {
+      Alert.alert('❌ Erro!', 'Informe o email do usuário.');
+    }
+
+    setEmail('');
+  };
+
+  const botaoExcluirDesabilitado = !isChecked || emailText.trim() === '';
+
+  return (
+    <>
       <View style={styles.container}>
         <Text>Você será desconectado!</Text>
         <Text></Text>
-        <Button title="Tem certeza que deseja sair?" onPress={handleLogout} color="#4682b4" />
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: '#029DAF' }]}
+          onPress={handleLogout}
+        >
+          <Text style={styles.buttonText}>🚪 Tem certeza que deseja sair?</Text>
+        </TouchableOpacity>
       </View>
-      <View style={{ padding: 20 }}>
-      
-      </View>
-      <View style={styles.check}>  
+
+      <View style={{ padding: 20 }} />
+
+      {/* Checkbox + label */}
+      <View style={styles.check}>
         <Checkbox
           value={isChecked}
-          onValueChange={handleCheckboxChange} // Atualiza o estado da Checkbox
+          onValueChange={handleCheckboxChange}
+          color={isChecked ? '#029DAF' : undefined}
         />
         <Text style={styles.textbox}>Deseja excluir sua conta de acesso?</Text>
       </View>
-     
-      <View style={styles.button}>
+
+      {/* E-mail + botão Excluir */}
+      <View style={styles.buttonContainer}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, !isEditable && styles.inputDisabled]}
           placeholder="Digite seu e-mail"
           value={emailText}
           onChangeText={setEmail}
@@ -153,47 +173,67 @@ const Sair = ({ navigation }) => {
           autoCapitalize="none"
           editable={isEditable}
         />
-        <Button 
-          title="Excluir Minha Conta"
-          onPress={excluirConta} color="#4682b4" // Chama a função de exclusão quando pressionado
-          disabled={!isChecked} // Desativa o botão se a Checkbox não estiver marcada
-        />
-      </View>
-      </>
-    );
-}
- 
 
+        <TouchableOpacity
+          style={[
+            styles.button,
+            { backgroundColor: '#029DAF' },
+            botaoExcluirDesabilitado && styles.buttonDisabled
+          ]}
+          onPress={excluirConta}
+          disabled={botaoExcluirDesabilitado}
+        >
+          <Text style={styles.buttonText}>🗑️ Excluir Minha Conta</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  );
+};
 
 const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      alignItems: 'center',
-      paddingTop: 250,
-    },
-    check: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 20,
-      paddingStart: 20
-    },
-    textbox: {
-      marginLeft: 8,
-      color: 'red'
-    },
-    button: {
-      paddingBottom: 20,
-      paddingHorizontal: 20
-    },
-    input: {
-      height: 40,
-      borderColor: 'gray',
-      borderWidth: 1,
-      marginBottom: 10,
-      paddingHorizontal: 10,
-      borderRadius: 5,
-      color:'#808080'
-    },
-  });
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 250,
+  },
+  check: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingStart: 20
+  },
+  textbox: {
+    marginLeft: 8,
+    color: 'red'
+  },
+  buttonContainer: {
+    paddingBottom: 20,
+    paddingHorizontal: 20
+  },
+  input: {
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+    color: '#808080',
+    backgroundColor: '#fff'
+  },
+  inputDisabled: {
+    backgroundColor: '#f3f4f6', // cinza claro quando desabilitado
+    color: '#9ca3af'
+  },
+  button: {
+    padding: 15,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: 'center'
+  },
+  buttonDisabled: {
+    opacity: 0.5
+  },
+  buttonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
+});
 
 export default Principal;
