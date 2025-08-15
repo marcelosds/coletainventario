@@ -576,6 +576,47 @@ export const getLocalizaSQLite = (placaOuCodigo) => {
   });
 };
 
+/* ---------------------- EXCLUIR INVENTÁRIO (NOVO) ---------------------- */
+/**
+ * Exclui todos os registros do inventário informado.
+ * @param {string|number} nrInventario - código do inventário (ex.: "100").
+ * @returns {Promise<{ bensRemovidos: number }>}
+ */
+export function excluirInventario(nrInventario) {
+  const nr = String(nrInventario || '').trim();
+  if (!nr) return Promise.reject(new Error('Número de inventário inválido.'));
+
+  return new Promise((resolve, reject) => {
+    db.transaction(
+      tx => {
+        // Obter contagem antes (opcional, para retorno amigável)
+        tx.executeSql(
+          'SELECT COUNT(*) as total FROM BENS WHERE nrInventario = ?',
+          [nr],
+          (_, rs) => {
+            const totalAntes = rs.rows.item(0)?.total ?? 0;
+
+            // Excluir bens do inventário
+            tx.executeSql(
+              'DELETE FROM BENS WHERE nrInventario = ?',
+              [nr],
+              () => {
+                // Se houver outras tabelas relacionadas por inventário, você pode apagar aqui também.
+                // Exemplo (só ative se existir no seu schema):
+                // tx.executeSql('DELETE FROM LOGS_IMPORT WHERE nrInventario = ?', [nr]);
+
+                resolve({ bensRemovidos: totalAntes });
+              }
+            );
+          }
+        );
+      },
+      (err) => reject(err),
+      null
+    );
+  });
+}
+
 /* ---------------------- Atualização via combobox ----------------------
    Aqui, mantemos:
    - codigoLocalizacao: recebe o código selecionado no combobox

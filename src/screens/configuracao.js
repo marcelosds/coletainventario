@@ -16,7 +16,8 @@ import {
   importarArquivosTXT,
   listarInventarios,
   getBens,            // <- fallback
-  getBensByInventario // <- se existir, usamos; senão filtramos getBens()
+  getBensByInventario, // <- se existir, usamos; senão filtramos getBens()
+  excluirInventario    // <- NOVO: função no baseSqlite.js para excluir inventário
 } from '../database/baseSqlite';
 
 const Configuracao = ({ navigation }) => {
@@ -38,8 +39,11 @@ const Configuracao = ({ navigation }) => {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  // ✅ NOVO: checkbox que habilita ações sensíveis (backup, restaura, limpar)
+  // ✅ checkbox que habilita ações sensíveis (backup, restaura, limpar)
   const [habilitarAcoes, setHabilitarAcoes] = useState(false);
+
+  // ✅ checkbox que habilita a exclusão do inventário selecionado
+  const [habilitarExcluir, setHabilitarExcluir] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -202,10 +206,10 @@ const Configuracao = ({ navigation }) => {
 
       // Monta o conteúdo
       const linhas = rows.map(r => {
-        const placa  = padLeftZerosAny(r?.placa, 12);
-        const codLoc = padLeftZeros(r?.localAntigo, 3);
-        const codEst = padLeftZeros(r?.codigoEstado, 2);
-        const codSit = padLeftZeros(r?.codigoSituacao ?? r?.codigo_situacao, 2);
+        const placa   = padLeftZerosAny(r?.placa, 12);
+        const codLoc  = padLeftZeros(r?.localAntigo, 3);
+        const codEst  = padLeftZeros(r?.codigoEstado, 2);
+        const codSit  = padLeftZeros(r?.codigoSituacao ?? r?.codigo_situacao, 2);
         const codLoc2 = padLeftZeros(r?.codigoLocalizacao, 3);
         return placa + codLoc + codEst + codSit + codLoc2;
       });
@@ -239,6 +243,51 @@ const Configuracao = ({ navigation }) => {
     }
     await AsyncStorage.setItem('inventario', JSON.stringify({ codigoInventario: nr }));
     Alert.alert('✅ Sucesso!', `Inventário ${nr} definido para trabalho.`);
+  };
+
+  // ===== Exclusão do inventário selecionado (com checkbox) =====
+  const excluirInventarioSelecionado = async () => {
+    const nr = String(inventarioSelecionado || '').trim();
+    if (!nr) {
+      Alert.alert('⚠️ Atenção!', 'Selecione um inventário para excluir.');
+      return;
+    }
+
+    Alert.alert(
+      'Excluir Inventário',
+      `Deseja realmente excluir o inventário ${nr}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const result = await excluirInventario(nr);
+              // Opcional: checar contagem de linhas removidas (se a função retornar)
+              if (result?.bensRemovidos >= 0) {
+                Alert.alert('✅ Sucesso!', `Inventário ${nr} excluído. Registros removidos: ${result.bensRemovidos}.`);
+              } else {
+                Alert.alert('✅ Sucesso!', `Inventário ${nr} excluído.`);
+              }
+              setHabilitarExcluir(false);
+              await carregarInventarios();
+              // Se o inventário ativo nas telas era o mesmo, limpamos a seleção salva
+              const ativoJson = await AsyncStorage.getItem('inventario');
+              if (ativoJson) {
+                const ativo = JSON.parse(ativoJson);
+                if (String(ativo?.codigoInventario || '') === nr) {
+                  await AsyncStorage.removeItem('inventario');
+                }
+              }
+            } catch (e) {
+              console.error(e);
+              Alert.alert('❌ Erro!', 'Falha ao excluir inventário.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   // ===== Limpeza com autenticação =====
@@ -333,11 +382,11 @@ const Configuracao = ({ navigation }) => {
             />
           </View>
 
+          <View style={styles.backupContainer}>
           <TouchableOpacity
             style={[styles.button, { backgroundColor: '#029DAF' }, disabledStyle(!String(nrInventario || '').trim())]}
             onPress={handleImport}
             disabled={!String(nrInventario || '').trim()}
-            //disabled={isImporting}
           >
             <Text style={styles.buttonText}>
               {isImporting ? 'Importando...' : '📥 Importar Arquivos'}
@@ -352,6 +401,7 @@ const Configuracao = ({ navigation }) => {
           >
             <Text style={styles.buttonText}>📤 Exportar Arquivos</Text>
           </TouchableOpacity>
+          </View>
 
           {!!statusMsg && <Text style={styles.statusMsg}>{statusMsg}</Text>}
 
@@ -382,6 +432,21 @@ const Configuracao = ({ navigation }) => {
           >
             <Text style={styles.buttonText}>✅ Confirma</Text>
           </TouchableOpacity>
+
+          {/* ✅ Novo checkbox e botão de excluir (fica abaixo do Confirmar) */}
+          <CheckBox
+            value={habilitarExcluir}
+            onChange={setHabilitarExcluir}
+            label="Deseja excluir este inventário?"
+          />
+
+          <TouchableOpacity
+            style={[styles.button, styles.buttonDanger, disabledStyle(!habilitarExcluir)]}
+            onPress={habilitarExcluir ? excluirInventarioSelecionado : () => {}}
+            disabled={!habilitarExcluir}
+          >
+            <Text style={styles.buttonText}>🗑 Excluir Inventário</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -389,7 +454,7 @@ const Configuracao = ({ navigation }) => {
       <View style={styles.footer}>
         {/* Linha preta acima do título */}
         <View style={styles.divider} />
-        {/* ✅ Checkbox que habilita as ações */}
+        {/* ✅ Checkbox que habilita as ações de segurança (backup, restaura, limpar) */}
         <CheckBox
           value={habilitarAcoes}
           onChange={setHabilitarAcoes}
